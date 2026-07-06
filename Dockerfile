@@ -10,7 +10,8 @@ COPY media ./media
 COPY config ./config
 COPY translations ./translations
 RUN npm install
+RUN npm run compile:db
+RUN npm run compile
 RUN npm run build
-
 EXPOSE 80
 CMD ["npm", "run", "start"]
