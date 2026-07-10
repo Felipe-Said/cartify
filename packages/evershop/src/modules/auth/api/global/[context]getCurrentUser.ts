@@ -35,8 +35,8 @@ export default async (request: CartifyRequest, response, next) => {
         const adminSessionData = await getSession(sessionID);
         if (adminSessionData) {
           // Set the user in the context
-          const query = select()
-            .from('admin_user')
+          const query = select().from('admin_user');
+          query
             .where('admin_user.admin_user_id', '=', adminSessionData.userID)
             .and('admin_user.status', '=', 1)
             .and('admin_user_store.store_id', '=', getCurrentStoreId());

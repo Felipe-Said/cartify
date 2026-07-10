@@ -18,8 +18,8 @@ const _loginUserWithEmail = async function loginUserWithEmail(
 ): Promise<void> {
   // Escape the email to prevent SQL injection
   const userEmail = email.replace(/%/g, '\\%');
-  const query = select()
-    .from('admin_user')
+  const query = select().from('admin_user');
+  query
     .where('admin_user.email', 'ILIKE', userEmail)
     .and('admin_user.status', '=', 1)
     .and('admin_user_store.store_id', '=', getCurrentStoreId());
