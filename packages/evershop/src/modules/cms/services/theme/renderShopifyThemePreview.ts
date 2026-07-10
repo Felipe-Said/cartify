@@ -86,6 +86,17 @@ function withShopifyTags(source: string) {
       /{%-?\s*include\s+['"]([^/'"]+)['"][\s\S]*?-?%}/g,
       "{% include 'snippets/$1.liquid' %}"
     )
+    // Shopify's form tag is a server-side helper. A preview can preserve the
+    // visual markup without attempting to submit to Shopify.
+    .replace(
+      /{%-?\s*form\s+[\s\S]*?-?%}/g,
+      '<form action="#" method="post" data-cartify-preview-form>'
+    )
+    .replace(/{%-?\s*endform\s*-?%}/g, '</form>')
+    // Paginate changes the available Shopify collection object. The preview
+    // does not have catalogue data yet, but it can still render its contents.
+    .replace(/{%-?\s*paginate\s+[\s\S]*?-?%}/g, '')
+    .replace(/{%-?\s*endpaginate\s*-?%}/g, '')
     .replace(/{%-?\s*schema\s*-?%}[\s\S]*?{%-?\s*endschema\s*-?%}/g, '')
     .replace(
       /{%-?\s*javascript\s*-?%}([\s\S]*?){%-?\s*endjavascript\s*-?%}/g,
