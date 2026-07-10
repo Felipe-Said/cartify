@@ -52,7 +52,21 @@ const cartifySections = [
 ];
 
 function fileLabel(file: string) {
-  return file.replace(/^(templates|sections|snippets|locales)\//, '');
+  const clean = file.replace(/^(templates|sections|snippets|locales)\//, '');
+  return clean === 'index.json' || clean === 'index.liquid'
+    ? 'Pagina inicial'
+    : clean;
+}
+
+function sortTemplates(templates: string[]) {
+  return [...templates].sort((a, b) => {
+    const aIndex = /templates\/index\.(json|liquid)$/.test(a) ? 0 : 1;
+    const bIndex = /templates\/index\.(json|liquid)$/.test(b) ? 0 : 1;
+    if (aIndex !== bIndex) {
+      return aIndex - bIndex;
+    }
+    return a.localeCompare(b);
+  });
 }
 
 function Sidebar({
@@ -164,18 +178,28 @@ function Sidebar({
 function Preview({
   theme,
   device,
-  selectedItem
+  selectedItem,
+  selectedTemplate
 }: {
   theme: StoreTheme;
   device: 'desktop' | 'mobile';
   selectedItem: string;
+  selectedTemplate: string;
 }) {
+  const separator = theme.previewUrl.includes('?') ? '&' : '?';
+  const previewUrl =
+    selectedTemplate && selectedTemplate.includes('/')
+      ? `${theme.previewUrl}${separator}template=${encodeURIComponent(
+          selectedTemplate
+        )}`
+      : theme.previewUrl;
+
   return (
     <div className={`theme-editor-preview theme-editor-preview--${device}`}>
       <div className="theme-editor-device-frame">
         <iframe
           title={`Visualizacao da loja - ${selectedItem}`}
-          src={theme.previewUrl || '/'}
+          src={previewUrl || '/'}
         />
       </div>
     </div>
@@ -236,8 +260,12 @@ export default function ThemeEditor({
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(false);
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
-  const [selectedTemplate, setSelectedTemplate] = useState('Pagina inicial');
-  const [selectedItem, setSelectedItem] = useState('Pagina inicial');
+  const defaultTemplate = useMemo(() => {
+    const templates = sortTemplates(theme?.templates || []);
+    return templates[0] || 'Pagina inicial';
+  }, [theme?.templates]);
+  const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplate);
+  const [selectedItem, setSelectedItem] = useState(defaultTemplate);
   const [hiddenItems, setHiddenItems] = useState<string[]>([]);
   const [hasChanges, setHasChanges] = useState(false);
   const [saveLabel, setSaveLabel] = useState('Salvar');
@@ -246,7 +274,7 @@ export default function ThemeEditor({
     if (!theme?.templates?.length) {
       return ['Pagina inicial'];
     }
-    return theme.templates.map(fileLabel);
+    return sortTemplates(theme.templates);
   }, [theme?.templates]);
 
   if (!theme) {
@@ -318,7 +346,7 @@ export default function ThemeEditor({
             >
               {templateOptions.map((template) => (
                 <option key={template} value={template}>
-                  {template}
+                  {fileLabel(template)}
                 </option>
               ))}
             </select>
@@ -390,7 +418,12 @@ export default function ThemeEditor({
             onToggleItem={toggleHiddenItem}
           />
         )}
-        <Preview theme={theme} device={device} selectedItem={selectedItem} />
+        <Preview
+          theme={theme}
+          device={device}
+          selectedItem={selectedItem}
+          selectedTemplate={selectedTemplate}
+        />
         {inspectorOpen && (
           <Inspector
             selectedItem={selectedItem}

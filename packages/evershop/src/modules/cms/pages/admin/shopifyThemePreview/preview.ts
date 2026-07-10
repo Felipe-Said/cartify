@@ -7,7 +7,12 @@ export default async (
   response: CartifyResponse
 ) => {
   try {
-    const html = await renderShopifyThemePreview(request.params.theme);
+    const html = await renderShopifyThemePreview(request.params.theme, {
+      template:
+        typeof request.query.template === 'string'
+          ? request.query.template
+          : undefined
+    });
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');
     response.send(html);
