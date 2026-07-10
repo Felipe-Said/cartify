@@ -73,8 +73,17 @@ function withShopifyTags(source: string) {
       /{%-?\s*section\s+['"]([^'"]+)['"]\s*-?%}/g,
       "{% include 'sections/$1.liquid' %}"
     )
+    // Shopify accepts `render` with comma arguments, `with` and `for`.
+    // LiquidJS does not resolve Shopify snippet paths by default, so normalize
+    // every variant to the extracted snippets directory.
     .replace(
-      /{%-?\s*render\s+['"]([^'"]+)['"](?:\s*,[\s\S]*?)?\s*-?%}/g,
+      /{%-?\s*render\s+['"]([^'"]+)['"][\s\S]*?-?%}/g,
+      "{% include 'snippets/$1.liquid' %}"
+    )
+    // Older Shopify themes can still use the deprecated include tag for
+    // snippets. It needs the same path normalization as render.
+    .replace(
+      /{%-?\s*include\s+['"]([^/'"]+)['"][\s\S]*?-?%}/g,
       "{% include 'snippets/$1.liquid' %}"
     )
     .replace(/{%-?\s*schema\s*-?%}[\s\S]*?{%-?\s*endschema\s*-?%}/g, '')
