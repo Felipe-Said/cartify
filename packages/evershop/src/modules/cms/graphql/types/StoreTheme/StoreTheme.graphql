@@ -22,6 +22,8 @@ type StoreTheme {
   editUrl: String!
   publishApi: String!
   previewUrl: String!
+  editorApi: String!
+  mediaUploadApi: String!
 }
 
 extend type Query {

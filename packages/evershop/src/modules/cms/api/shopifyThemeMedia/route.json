@@ -1,0 +1,5 @@
+{
+  "methods": ["POST"],
+  "path": "/themes/:theme/editor/media",
+  "access": "private"
+}

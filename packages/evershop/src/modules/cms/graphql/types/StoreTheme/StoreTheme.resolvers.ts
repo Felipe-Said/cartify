@@ -14,6 +14,9 @@ export default {
       buildUrl('onlineStoreThemeEditor', { theme: name }),
     publishApi: ({ name }) =>
       buildUrl('publishStoreTheme', { theme: name }),
+    editorApi: ({ name }) => buildUrl('shopifyThemeEditor', { theme: name }),
+    mediaUploadApi: ({ name }) =>
+      buildUrl('shopifyThemeMedia', { theme: name }),
     previewUrl: ({ name, engine }) =>
       engine === 'shopify_liquid'
         ? buildUrl('shopifyThemePreview', { theme: name })
