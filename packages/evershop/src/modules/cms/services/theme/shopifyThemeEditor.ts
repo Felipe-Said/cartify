@@ -50,7 +50,73 @@ async function readJson<T>(filePath: string, fallback: T): Promise<T> {
   }
 }
 
-async function readSectionSchema(rootPath: string, type: string) {
+function translationValue(translations: any, key: string) {
+  return key.split('.').reduce((current, part) => current?.[part], translations);
+}
+
+function localize(value: any, translations: any) {
+  if (typeof value !== 'string' || !value.startsWith('t:')) {
+    return value;
+  }
+  const translated = translationValue(translations, value.slice(2));
+  return typeof translated === 'string' ? translated : value;
+}
+
+function localizeSchema(schema: ThemeSchema, translations: any): ThemeSchema {
+  return {
+    ...schema,
+    name: localize(schema.name, translations),
+    settings: (schema.settings || []).map((setting) => ({
+      ...setting,
+      label: localize(setting.label, translations),
+      info: localize(setting.info, translations),
+      content: localize(setting.content, translations),
+      options: (setting.options || []).map((option) => ({
+        ...option,
+        label: localize(option.label, translations)
+      }))
+    })),
+    blocks: (schema.blocks || []).map((block) => ({
+      ...block,
+      name: localize(block.name, translations),
+      settings: (block.settings || []).map((setting) => ({
+        ...setting,
+        label: localize(setting.label, translations),
+        info: localize(setting.info, translations),
+        content: localize(setting.content, translations),
+        options: (setting.options || []).map((option) => ({
+          ...option,
+          label: localize(option.label, translations)
+        }))
+      }))
+    }))
+  };
+}
+
+async function loadEditorTranslations(rootPath: string) {
+  for (const locale of [
+    'pt-BR.json',
+    'pt-BR.default.json',
+    'pt.json',
+    'en.default.json',
+    'en.json'
+  ]) {
+    const translations = await readJson<any>(
+      path.join(rootPath, 'locales', locale),
+      null
+    );
+    if (translations) {
+      return translations;
+    }
+  }
+  return {};
+}
+
+async function readSectionSchema(
+  rootPath: string,
+  type: string,
+  translations: any
+) {
   const source = await fs.readFile(
     path.join(rootPath, 'sections', `${type}.liquid`),
     'utf8'
@@ -60,7 +126,10 @@ async function readSectionSchema(rootPath: string, type: string) {
     return null;
   }
   try {
-    return parseShopifyJson<ThemeSchema>(match[1].trim());
+    return localizeSchema(
+      parseShopifyJson<ThemeSchema>(match[1].trim()),
+      translations
+    );
   } catch {
     return null;
   }
@@ -75,7 +144,7 @@ function normalizeSchema(schema: ThemeSchema | null, fallbackName: string) {
   };
 }
 
-async function listSectionTypes(rootPath: string) {
+async function listSectionTypes(rootPath: string, translations: any) {
   const directory = path.join(rootPath, 'sections');
   let entries: fs.Dirent[] = [];
   try {
@@ -89,7 +158,7 @@ async function listSectionTypes(rootPath: string) {
       .filter((entry) => entry.isFile() && entry.name.endsWith('.liquid'))
       .map(async (entry) => {
         const type = entry.name.replace(/\.liquid$/, '');
-        const schema = await readSectionSchema(rootPath, type);
+        const schema = await readSectionSchema(rootPath, type, translations);
         if (!schema?.presets?.length) {
           return null;
         }
@@ -120,6 +189,7 @@ function editorSection(id: string, section: any, schema: ThemeSchema | null) {
 
 export async function getShopifyThemeEditor(themeName: string, template?: string) {
   const rootPath = themePath(themeName);
+  const translations = await loadEditorTranslations(rootPath);
   const selectedTemplate = safeTemplatePath(template || 'templates/index.json');
   if (!selectedTemplate.endsWith('.json')) {
     throw new Error('Only JSON templates can be edited visually.');
@@ -132,7 +202,11 @@ export async function getShopifyThemeEditor(themeName: string, template?: string
   ]);
   const sections = await Promise.all(
     Object.entries(templateData.sections || {}).map(async ([id, section]) =>
-      editorSection(id, section, await readSectionSchema(rootPath, section.type))
+      editorSection(
+        id,
+        section,
+        await readSectionSchema(rootPath, section.type, translations)
+      )
     )
   );
 
@@ -141,10 +215,12 @@ export async function getShopifyThemeEditor(themeName: string, template?: string
     templateData,
     global: {
       settings: settingsData.current || {},
-      schema: settingsSchema.filter((group) => Array.isArray(group.settings))
+      schema: settingsSchema
+        .filter((group) => Array.isArray(group.settings))
+        .map((group) => localizeSchema(group, translations))
     },
     sections: (templateData.order || []).map((id) => sections.find((section) => section.id === id)).filter(Boolean),
-    availableSections: await listSectionTypes(rootPath)
+    availableSections: await listSectionTypes(rootPath, translations)
   };
 }
 

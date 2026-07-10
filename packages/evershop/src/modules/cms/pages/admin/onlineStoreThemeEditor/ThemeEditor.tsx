@@ -1,5 +1,5 @@
 import {
-  ChevronDown,
+  ArrowLeft,
   ChevronRight,
   Eye,
   EyeOff,
@@ -10,6 +10,7 @@ import {
   Save,
   Settings,
   Smartphone,
+  Trash2,
   Undo2,
   Upload,
   X
@@ -53,7 +54,13 @@ type EditorData = {
   templateData: { sections?: Record<string, any>; order?: string[]; [key: string]: any };
   global: { settings: Record<string, any>; schema: ThemeSchema[] };
   sections: EditorSection[];
-  availableSections: Array<{ type: string; name?: string; settings?: ThemeSetting[]; presets?: Array<{ name?: string }> }>;
+  availableSections: Array<{
+    type: string;
+    name?: string;
+    settings?: ThemeSetting[];
+    blocks?: ThemeSchema['blocks'];
+    presets?: Array<{ name?: string }>;
+  }>;
 };
 
 type StoreTheme = {
@@ -235,7 +242,11 @@ function Inspector({
   mediaUploadApi,
   onGlobalChange,
   onSectionChange,
-  onBlockChange
+  onBlockChange,
+  onBack,
+  onAddBlock,
+  onRemoveSection,
+  onRemoveBlock
 }: {
   data: EditorData;
   selected: string;
@@ -243,9 +254,58 @@ function Inspector({
   onGlobalChange: (id: string, value: any) => void;
   onSectionChange: (sectionId: string, id: string, value: any) => void;
   onBlockChange: (sectionId: string, blockId: string, id: string, value: any) => void;
+  onBack: () => void;
+  onAddBlock: (sectionId: string, type: string) => void;
+  onRemoveSection: (sectionId: string) => void;
+  onRemoveBlock: (sectionId: string, blockId: string) => void;
 }) {
+  const panelHeader = (eyebrow: string, title: string, description: string) => (
+    <div className="theme-editor-inspector__header">
+      <button
+        type="button"
+        className="theme-editor-icon-button"
+        onClick={onBack}
+        title="Voltar para as seções"
+      >
+        <ArrowLeft size={18} />
+      </button>
+      <div>
+        <span className="theme-editor-inspector__eyebrow">{eyebrow}</span>
+        <h3>{title}</h3>
+        <p>{description}</p>
+      </div>
+    </div>
+  );
+
   if (selected === 'global') {
-    return <aside className="theme-editor-inspector"><span className="theme-editor-inspector__eyebrow">Tema</span><h3>Configurações do tema</h3><p>Essas opções aparecem em toda a loja.</p>{data.global.schema.map((group, index) => <section className="theme-editor-settings-group" key={`${group.name}-${index}`}><h4>{humanize(group.name)}</h4>{group.settings?.map((field) => <Field key={field.id || field.content} field={field} value={settingValue(data.global.settings, field)} onChange={(value) => field.id && onGlobalChange(field.id, value)} mediaUploadApi={mediaUploadApi} />)}</section>)}</aside>;
+    return (
+      <aside className="theme-editor-inspector">
+        {panelHeader(
+          'Tema',
+          'Configurações do tema',
+          'Essas opções aparecem em toda a loja.'
+        )}
+        {data.global.schema.map((group, index) => (
+          <section
+            className="theme-editor-settings-group"
+            key={`${group.name}-${index}`}
+          >
+            <h4>{humanize(group.name)}</h4>
+            {group.settings?.map((field) => (
+              <Field
+                key={field.id || field.content}
+                field={field}
+                value={settingValue(data.global.settings, field)}
+                onChange={(value) =>
+                  field.id && onGlobalChange(field.id, value)
+                }
+                mediaUploadApi={mediaUploadApi}
+              />
+            ))}
+          </section>
+        ))}
+      </aside>
+    );
   }
   const [kind, sectionId, blockId] = selected.split(':');
   const section = data.sections.find((item) => item.id === sectionId);
@@ -254,7 +314,75 @@ function Inspector({
   const fields = block ? section.schema.blocks?.find((item) => item.type === block.type)?.settings || [] : section.schema.settings || [];
   const values = block ? block.settings : section.settings;
   const title = block ? humanize(section.schema.blocks?.find((item) => item.type === block.type)?.name || block.type) : sectionName(section);
-  return <aside className="theme-editor-inspector"><span className="theme-editor-inspector__eyebrow">{block ? 'Bloco' : 'Seção'}</span><h3>{title}</h3><p>{block ? 'Edite o conteúdo deste bloco.' : 'Edite o layout e o conteúdo desta seção.'}</p><section className="theme-editor-settings-group">{fields.map((field) => <Field key={field.id || field.content} field={field} value={settingValue(values, field)} mediaUploadApi={mediaUploadApi} onChange={(value) => field.id && (block ? onBlockChange(section.id, block.id, field.id, value) : onSectionChange(section.id, field.id, value))} />)}</section></aside>;
+  const availableBlocks = (section.schema.blocks || []).filter(
+    (item) => item.type && item.type !== '@app'
+  );
+  return (
+    <aside className="theme-editor-inspector">
+      {panelHeader(
+        block ? 'Bloco' : 'Seção',
+        title,
+        block
+          ? 'Edite o conteúdo deste bloco.'
+          : 'Edite o layout e o conteúdo desta seção.'
+      )}
+      <section className="theme-editor-settings-group">
+        {fields.length > 0 ? (
+          fields.map((field) => (
+            <Field
+              key={field.id || field.content}
+              field={field}
+              value={settingValue(values, field)}
+              mediaUploadApi={mediaUploadApi}
+              onChange={(value) =>
+                field.id &&
+                (block
+                  ? onBlockChange(section.id, block.id, field.id, value)
+                  : onSectionChange(section.id, field.id, value))
+              }
+            />
+          ))
+        ) : (
+          <p className="theme-editor-empty-settings">
+            {block
+              ? 'Este bloco não possui ajustes próprios.'
+              : 'Esta seção usa os ajustes dos blocos abaixo.'}
+          </p>
+        )}
+      </section>
+      {!block && availableBlocks.length > 0 && (
+        <details className="theme-editor-add-block">
+          <summary>
+            <Plus size={16} /> Adicionar bloco
+          </summary>
+          <div>
+            {availableBlocks.map((item) => (
+              <button
+                type="button"
+                key={item.type}
+                onClick={() => onAddBlock(section.id, item.type!)}
+              >
+                {humanize(item.name || item.type)}
+                <ChevronRight size={15} />
+              </button>
+            ))}
+          </div>
+        </details>
+      )}
+      <button
+        type="button"
+        className="theme-editor-remove-button"
+        onClick={() =>
+          block
+            ? onRemoveBlock(section.id, block.id)
+            : onRemoveSection(section.id)
+        }
+      >
+        <Trash2 size={16} />
+        {block ? 'Remover bloco' : 'Remover seção'}
+      </button>
+    </aside>
+  );
 }
 
 function AddSectionModal({ sections, onAdd, onClose }: { sections: EditorData['availableSections']; onAdd: (type: string) => void; onClose: () => void }) {
@@ -271,7 +399,7 @@ export default function ThemeEditor({ theme, onlineStoreUrl }: ThemeEditorProps)
   const templates = useMemo(() => sortTemplates((theme?.templates || []).filter((item) => item.endsWith('.json'))), [theme?.templates]);
   const [template, setTemplate] = useState(templates[0] || 'templates/index.json');
   const [data, setData] = useState<EditorData | null>(null);
-  const [selected, setSelected] = useState('global');
+  const [selected, setSelected] = useState('navigation');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
   const [dirty, setDirty] = useState(false);
@@ -280,11 +408,16 @@ export default function ThemeEditor({ theme, onlineStoreUrl }: ThemeEditorProps)
   const [addOpen, setAddOpen] = useState(false);
 
   useEffect(() => {
+    document.body.classList.add('theme-editor-active');
+    return () => document.body.classList.remove('theme-editor-active');
+  }, []);
+
+  useEffect(() => {
     if (!theme || theme.engine !== 'shopify_liquid') return;
     const controller = new AbortController();
     setData(null);
     setDirty(false);
-    setSelected('global');
+    setSelected('navigation');
     fetch(`${theme.editorApi}?template=${encodeURIComponent(template)}`, { signal: controller.signal })
       .then(async (response) => {
         const payload = await response.json();
@@ -305,10 +438,13 @@ export default function ThemeEditor({ theme, onlineStoreUrl }: ThemeEditorProps)
   function updateSection(sectionId: string, id: string, value: any) { update((current) => { current.templateData.sections![sectionId].settings ||= {}; current.templateData.sections![sectionId].settings[id] = value; const section = current.sections.find((item) => item.id === sectionId); if (section) section.settings[id] = value; }); }
   function updateBlock(sectionId: string, blockId: string, id: string, value: any) { update((current) => { current.templateData.sections![sectionId].blocks[blockId].settings ||= {}; current.templateData.sections![sectionId].blocks[blockId].settings[id] = value; const block = current.sections.find((item) => item.id === sectionId)?.blocks.find((item) => item.id === blockId); if (block) block.settings[id] = value; }); }
   function toggleSection(sectionId: string) { update((current) => { const item = current.templateData.sections![sectionId]; item.disabled = !item.disabled; const section = current.sections.find((value) => value.id === sectionId); if (section) section.disabled = item.disabled; }); }
-  function addSection(type: string) { update((current) => { const id = `${type}_${Math.random().toString(36).slice(2, 8)}`; const source = current.availableSections.find((item) => item.type === type); const settings = Object.fromEntries((source?.settings || []).filter((field) => field.id).map((field) => [field.id!, field.default ?? ''])); current.templateData.sections ||= {}; current.templateData.order ||= []; current.templateData.sections[id] = { type, settings }; current.templateData.order.push(id); current.sections.push({ id, type, settings, blocks: [], blockOrder: [], schema: { name: source?.name || type, settings: source?.settings || [], blocks: [] } }); setSelected(`section:${id}`); }); setAddOpen(false); }
+  function addSection(type: string) { update((current) => { const id = `${type}_${Math.random().toString(36).slice(2, 8)}`; const source = current.availableSections.find((item) => item.type === type); const settings = Object.fromEntries((source?.settings || []).filter((field) => field.id).map((field) => [field.id!, field.default ?? ''])); current.templateData.sections ||= {}; current.templateData.order ||= []; current.templateData.sections[id] = { type, settings }; current.templateData.order.push(id); current.sections.push({ id, type, settings, blocks: [], blockOrder: [], schema: { name: source?.name || type, settings: source?.settings || [], blocks: source?.blocks || [] } }); setSelected(`section:${id}`); }); setAddOpen(false); }
+  function addBlock(sectionId: string, type: string) { update((current) => { const section = current.sections.find((item) => item.id === sectionId); const definition = section?.schema.blocks?.find((item) => item.type === type); if (!section || !definition) return; const id = `${type}_${Math.random().toString(36).slice(2, 8)}`; const settings = Object.fromEntries((definition.settings || []).filter((field) => field.id).map((field) => [field.id!, field.default ?? ''])); const templateSection = current.templateData.sections![sectionId]; templateSection.blocks ||= {}; templateSection.block_order ||= []; templateSection.blocks[id] = { type, settings }; templateSection.block_order.push(id); section.blocks.push({ id, type, settings }); section.blockOrder.push(id); setSelected(`block:${sectionId}:${id}`); }); }
+  function removeSection(sectionId: string) { update((current) => { delete current.templateData.sections![sectionId]; current.templateData.order = (current.templateData.order || []).filter((id) => id !== sectionId); current.sections = current.sections.filter((item) => item.id !== sectionId); }); setSelected('navigation'); }
+  function removeBlock(sectionId: string, blockId: string) { update((current) => { const templateSection = current.templateData.sections![sectionId]; delete templateSection.blocks?.[blockId]; templateSection.block_order = (templateSection.block_order || []).filter((id: string) => id !== blockId); const section = current.sections.find((item) => item.id === sectionId); if (section) { section.blocks = section.blocks.filter((item) => item.id !== blockId); section.blockOrder = section.blockOrder.filter((id) => id !== blockId); } }); setSelected(`section:${sectionId}`); }
   async function save() { if (!data || saving) return; setSaving(true); try { const response = await fetch(theme.editorApi, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template: data.template, templateData: data.templateData, globalSettings: data.global.settings }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload?.error?.message || 'Não foi possível salvar o tema.'); setDirty(false); setRefreshKey((value) => value + 1); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar o tema.'); } finally { setSaving(false); } }
 
-  return <div className="theme-editor-page"><div className="theme-editor-topbar"><div className="theme-editor-left-actions"><a href={onlineStoreUrl} className="theme-editor-icon-button" title="Voltar"><Undo2 size={18} /></a><button type="button" className={`theme-editor-icon-button${sidebarOpen ? ' active' : ''}`} onClick={() => setSidebarOpen((value) => !value)} title="Seções"><PanelLeft size={18} /></button></div><div className="theme-editor-title"><span>{theme.label}</span><span className="status-pill status-pill--active">{theme.status === 'ready' ? 'Ativo' : 'Rascunho'}</span><span className="theme-editor-template"><Home size={16} /><select value={template} onChange={(event) => setTemplate(event.target.value)}>{templates.map((item) => <option key={item} value={item}>{fileLabel(item)}</option>)}</select></span></div><div className="theme-editor-actions"><button type="button" className={`theme-editor-icon-button${device === 'desktop' ? ' active' : ''}`} onClick={() => setDevice('desktop')} title="Desktop"><Monitor size={17} /></button><button type="button" className={`theme-editor-icon-button${device === 'mobile' ? ' active' : ''}`} onClick={() => setDevice('mobile')} title="Celular"><Smartphone size={17} /></button><button type="button" className="theme-editor-icon-button" disabled={!dirty} onClick={() => window.location.reload()} title="Descartar alterações"><Undo2 size={17} /></button><button type="button" className="button button--primary" disabled={!dirty || saving} onClick={save}><Save size={16} />{saving ? 'Salvando...' : 'Salvar'}</button></div></div><div className={`theme-editor-shell${sidebarOpen ? '' : ' theme-editor-shell--sidebar-closed'}`}>{data ? <>{sidebarOpen && <Sidebar data={data} selected={selected} onSelect={setSelected} onToggle={toggleSection} onAdd={() => setAddOpen(true)} />}<Preview theme={theme} template={template} device={device} refreshKey={refreshKey} /><Inspector data={data} selected={selected} mediaUploadApi={theme.mediaUploadApi} onGlobalChange={(id, value) => update((current) => { current.global.settings[id] = value; })} onSectionChange={updateSection} onBlockChange={updateBlock} /></> : <div className="theme-editor-loading">Carregando as opções do tema…</div>}</div>{addOpen && data && <AddSectionModal sections={data.availableSections} onAdd={addSection} onClose={() => setAddOpen(false)} />}</div>;
+  return <div className="theme-editor-page"><div className="theme-editor-topbar"><div className="theme-editor-left-actions"><a href={onlineStoreUrl} className="theme-editor-icon-button" title="Voltar"><Undo2 size={18} /></a><button type="button" className={`theme-editor-icon-button${sidebarOpen ? ' active' : ''}`} onClick={() => setSidebarOpen((value) => !value)} title="Seções"><PanelLeft size={18} /></button></div><div className="theme-editor-title"><span>{theme.label}</span><span className="status-pill status-pill--active">{theme.status === 'ready' ? 'Ativo' : 'Rascunho'}</span><span className="theme-editor-template"><Home size={16} /><select value={template} onChange={(event) => setTemplate(event.target.value)}>{templates.map((item) => <option key={item} value={item}>{fileLabel(item)}</option>)}</select></span></div><div className="theme-editor-actions"><button type="button" className={`theme-editor-icon-button${device === 'desktop' ? ' active' : ''}`} onClick={() => setDevice('desktop')} title="Desktop"><Monitor size={17} /></button><button type="button" className={`theme-editor-icon-button${device === 'mobile' ? ' active' : ''}`} onClick={() => setDevice('mobile')} title="Celular"><Smartphone size={17} /></button><button type="button" className="theme-editor-icon-button" disabled={!dirty} onClick={() => window.location.reload()} title="Descartar alterações"><Undo2 size={17} /></button><button type="button" className="button button--primary" disabled={!dirty || saving} onClick={save}><Save size={16} />{saving ? 'Salvando...' : 'Salvar'}</button></div></div><div className={`theme-editor-shell${sidebarOpen ? '' : ' theme-editor-shell--sidebar-closed'}`}>{data ? <>{sidebarOpen && (selected === 'navigation' ? <Sidebar data={data} selected={selected} onSelect={setSelected} onToggle={toggleSection} onAdd={() => setAddOpen(true)} /> : <Inspector data={data} selected={selected} mediaUploadApi={theme.mediaUploadApi} onBack={() => setSelected('navigation')} onGlobalChange={(id, value) => update((current) => { current.global.settings[id] = value; })} onSectionChange={updateSection} onBlockChange={updateBlock} onAddBlock={addBlock} onRemoveSection={removeSection} onRemoveBlock={removeBlock} />)}<Preview theme={theme} template={template} device={device} refreshKey={refreshKey} /></> : <div className="theme-editor-loading">Carregando as opções do tema…</div>}</div>{addOpen && data && <AddSectionModal sections={data.availableSections} onAdd={addSection} onClose={() => setAddOpen(false)} />}</div>;
 }
 
 export const layout = { areaId: 'content', sortOrder: 10 };
