@@ -1,0 +1,22 @@
+"""
+Represents a storefront theme installed in Cartify.
+"""
+type StoreTheme {
+  name: String!
+  label: String!
+  version: String!
+  role: String!
+  engine: String!
+  status: String!
+  lastSavedAt: String
+  fileCount: Int!
+  templateCount: Int!
+  sectionCount: Int!
+  localeCount: Int!
+  errors: [String]
+  warnings: [String]
+}
+
+extend type Query {
+  storeThemes: [StoreTheme]
+}
