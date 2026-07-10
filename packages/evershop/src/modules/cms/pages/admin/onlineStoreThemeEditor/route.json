@@ -1,0 +1,4 @@
+{
+  "methods": ["GET"],
+  "path": "/online-store/themes/:theme/editor"
+}

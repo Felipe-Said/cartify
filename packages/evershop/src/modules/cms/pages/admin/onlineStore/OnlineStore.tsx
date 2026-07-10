@@ -23,10 +23,14 @@ type StoreTheme = {
   localeCount: number;
   errors?: string[];
   warnings?: string[];
+  editUrl: string;
+  publishApi: string;
+  previewUrl: string;
 };
 
 interface OnlineStoreProps {
   storeThemes?: StoreTheme[];
+  importUrl: string;
 }
 
 function formatDate(value?: string | null) {
@@ -55,6 +59,21 @@ function statusLabel(theme: StoreTheme) {
   return 'Revisar';
 }
 
+async function publishTheme(theme: StoreTheme) {
+  const response = await fetch(theme.publishApi, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    }
+  });
+  const payload = await response.json();
+  if (!response.ok) {
+    window.alert(payload?.error?.message || 'Nao foi possivel publicar o tema.');
+    return;
+  }
+  window.location.reload();
+}
+
 function ThemePreview({ theme }: { theme: StoreTheme }) {
   return (
     <div className="online-store-preview" aria-hidden="true">
@@ -78,15 +97,24 @@ function ThemePreview({ theme }: { theme: StoreTheme }) {
   );
 }
 
-function ThemeActions({ primary = false }: { primary?: boolean }) {
+function ThemeActions({
+  primary = false,
+  theme
+}: {
+  primary?: boolean;
+  theme: StoreTheme;
+}) {
   return (
     <div className="online-store-actions">
       <button type="button" className="button button--icon">
         <MoreHorizontal size={18} />
       </button>
-      <button type="button" className={primary ? 'button button--primary' : 'button'}>
+      <a
+        href={theme.editUrl}
+        className={primary ? 'button button--primary' : 'button'}
+      >
         Editar tema
-      </button>
+      </a>
     </div>
   );
 }
@@ -102,20 +130,20 @@ function ActiveTheme({ theme }: { theme: StoreTheme }) {
             <span className="status-pill status-pill--active">Ativo</span>
             <span className="status-pill">{statusLabel(theme)}</span>
           </div>
-          <p>
-            Salvo pela ultima vez: {formatDate(theme.lastSavedAt)}
-          </p>
+          <p>Salvo pela ultima vez: {formatDate(theme.lastSavedAt)}</p>
           <p className="online-store-card__meta">
-            Versao {theme.version} · {themeEngine(theme)}
+            Versao {theme.version} - {themeEngine(theme)}
           </p>
         </div>
-        <ThemeActions primary />
+        <ThemeActions primary theme={theme} />
       </div>
     </section>
   );
 }
 
 function DraftTheme({ theme }: { theme: StoreTheme }) {
+  const cannotPublish =
+    theme.engine === 'shopify_liquid' || theme.status !== 'ready';
   return (
     <article className="online-store-draft">
       <ThemePreview theme={theme} />
@@ -123,7 +151,7 @@ function DraftTheme({ theme }: { theme: StoreTheme }) {
         <h3>{theme.label}</h3>
         <p>Adicionado: {formatDate(theme.lastSavedAt)}</p>
         <p>
-          Versao {theme.version} · {themeEngine(theme)} · {theme.templateCount}{' '}
+          Versao {theme.version} - {themeEngine(theme)} - {theme.templateCount}{' '}
           templates
         </p>
       </div>
@@ -131,21 +159,34 @@ function DraftTheme({ theme }: { theme: StoreTheme }) {
         <button type="button" className="button button--icon">
           <MoreHorizontal size={18} />
         </button>
-        <button type="button" className="button">
+        <button
+          type="button"
+          className="button"
+          onClick={() => publishTheme(theme)}
+          disabled={cannotPublish}
+          title={
+            cannotPublish
+              ? 'Temas Shopify Liquid precisam do adaptador Liquid antes de publicar.'
+              : undefined
+          }
+        >
           Publicar
         </button>
         <button type="button" className="button button--icon">
           <ChevronDown size={16} />
         </button>
-        <button type="button" className="button">
+        <a href={theme.editUrl} className="button">
           Editar tema
-        </button>
+        </a>
       </div>
     </article>
   );
 }
 
-export default function OnlineStore({ storeThemes = [] }: OnlineStoreProps) {
+export default function OnlineStore({
+  storeThemes = [],
+  importUrl
+}: OnlineStoreProps) {
   const activeTheme =
     storeThemes.find((theme) => theme.role === 'main') || storeThemes[0];
   const draftThemes = storeThemes.filter((theme) => theme !== activeTheme);
@@ -160,10 +201,10 @@ export default function OnlineStore({ storeThemes = [] }: OnlineStoreProps) {
           Publica
           <ChevronDown size={16} />
         </button>
-        <button type="button" className="button">
+        <a href="/" target="_blank" rel="noreferrer" className="button">
           <Globe2 size={16} />
           Ver loja
-        </button>
+        </a>
         <button type="button" className="button button--icon">
           <MoreHorizontal size={18} />
         </button>
@@ -199,11 +240,11 @@ export default function OnlineStore({ storeThemes = [] }: OnlineStoreProps) {
       <section className="online-store-drafts">
         <div className="online-store-section-heading">
           <h2>Rascunhos de tema</h2>
-          <button type="button" className="button">
+          <a href={importUrl} className="button">
             <Upload size={16} />
             Importar
             <ChevronDown size={16} />
-          </button>
+          </a>
         </div>
         <div className="online-store-draft-list">
           {draftThemes.length > 0 ? (
@@ -243,6 +284,10 @@ export const query = `
       localeCount
       errors
       warnings
+      editUrl
+      publishApi
+      previewUrl
     }
+    importUrl: url(routeId: "onlineStoreThemeImport")
   }
 `;

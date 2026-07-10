@@ -1,0 +1,130 @@
+.theme-editor-page {
+  height: calc(100vh - 68px);
+  margin: -1.5rem;
+  background: #f1f1f1;
+}
+
+.theme-editor-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #d8d8d8;
+  background: #fff;
+}
+
+.theme-editor-topbar .page-heading {
+  margin: 0;
+  padding: 0;
+}
+
+.theme-editor-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.theme-editor-shell {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  height: calc(100% - 65px);
+}
+
+.theme-editor-sidebar {
+  overflow: auto;
+  border-right: 1px solid #d8d8d8;
+  background: #fff;
+}
+
+.theme-editor-sidebar__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  border-bottom: 1px solid #ebebeb;
+}
+
+.theme-editor-sidebar__group {
+  padding: 0.75rem;
+}
+
+.theme-editor-sidebar__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 42px;
+  padding: 0 0.75rem;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #202223;
+  font-weight: 600;
+  text-align: left;
+}
+
+.theme-editor-sidebar__item:hover,
+.theme-editor-sidebar__item.active {
+  background: #f1f1f1;
+}
+
+.theme-editor-notice {
+  margin: 0.75rem;
+  padding: 0.9rem;
+  border: 1px solid #f0dca8;
+  border-radius: 8px;
+  background: #fff8db;
+}
+
+.theme-editor-notice p {
+  margin: 0.35rem 0 0;
+  color: #5f4b17;
+  font-size: 0.875rem;
+}
+
+.theme-editor-preview {
+  padding: 1.5rem;
+}
+
+.theme-editor-preview iframe {
+  width: 100%;
+  height: 100%;
+  min-height: calc(100vh - 150px);
+  border: 1px solid #d8d8d8;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.theme-editor-preview--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 130px);
+}
+
+.theme-editor-preview--placeholder div {
+  max-width: 520px;
+  padding: 2rem;
+  border: 1px solid #d8d8d8;
+  border-radius: 12px;
+  background: #fff;
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .theme-editor-topbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .theme-editor-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .theme-editor-sidebar {
+    max-height: 360px;
+    border-right: 0;
+    border-bottom: 1px solid #d8d8d8;
+  }
+}

@@ -15,8 +15,12 @@ type StoreTheme {
   localeCount: Int!
   errors: [String]
   warnings: [String]
+  editUrl: String!
+  publishApi: String!
+  previewUrl: String!
 }
 
 extend type Query {
+  storeTheme(name: String!): StoreTheme
   storeThemes: [StoreTheme]
 }
