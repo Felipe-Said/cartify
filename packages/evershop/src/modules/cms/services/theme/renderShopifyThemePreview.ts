@@ -168,6 +168,14 @@ function hexToRgb(value: string) {
   };
 }
 
+function themeAssetUrl(themeName: string, assetName: string) {
+  const encodedAsset = String(assetName || '')
+    .split('/')
+    .map((segment) => encodeURIComponent(segment))
+    .join('/');
+  return `/admin/themes/${encodeURIComponent(themeName)}/assets/${encodedAsset}`;
+}
+
 function normalizeShopifyValue(value: any): any {
   if (typeof value === 'string') {
     if (value.startsWith('#')) {
@@ -181,7 +189,7 @@ function normalizeShopifyValue(value: any): any {
         width: 1600,
         height: 900,
         preview_image: { src: value },
-        url: `/themes/__THEME__/assets/${filename}`
+        url: themeAssetUrl('__THEME__', filename)
       };
     }
     return value;
@@ -208,7 +216,10 @@ function normalizeSettings(settingsData: any, themeName: string) {
     );
   }
   return JSON.parse(
-    JSON.stringify(current).replaceAll('/themes/__THEME__/', `/themes/${themeName}/`)
+    JSON.stringify(current).replaceAll(
+      '/admin/themes/__THEME__/',
+      `/admin/themes/${encodeURIComponent(themeName)}/`
+    )
   );
 }
 
@@ -225,16 +236,16 @@ function createLiquid(themeName: string, themePath: string) {
   const assetUrl = (value: any) => {
     if (typeof value === 'string' && value.startsWith('shopify://shop_images/')) {
       const filename = value.split('/').pop() || '';
-      return `/themes/${encodeURIComponent(themeName)}/assets/${filename}`;
+      return themeAssetUrl(themeName, filename);
     }
     if (value?.url) {
       return String(value.url);
     }
     if (value?.src && String(value.src).startsWith('shopify://shop_images/')) {
       const filename = String(value.src).split('/').pop() || '';
-      return `/themes/${encodeURIComponent(themeName)}/assets/${filename}`;
+      return themeAssetUrl(themeName, filename);
     }
-    return `/themes/${encodeURIComponent(themeName)}/assets/${String(value || '')}`;
+    return themeAssetUrl(themeName, String(value || ''));
   };
 
   liquid.registerFilter('asset_url', assetUrl);
