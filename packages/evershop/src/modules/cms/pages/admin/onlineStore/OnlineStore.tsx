@@ -1,6 +1,8 @@
 import { PageHeading } from '@components/admin/PageHeading.js';
 import {
   ChevronDown,
+  Plus,
+  X,
   Eye,
   Globe2,
   MoreHorizontal,
@@ -30,7 +32,7 @@ type StoreTheme = {
 
 interface OnlineStoreProps {
   storeThemes?: StoreTheme[];
-  importUrl: string;
+  uploadApi: string;
 }
 
 function formatDate(value?: string | null) {
@@ -183,10 +185,123 @@ function DraftTheme({ theme }: { theme: StoreTheme }) {
   );
 }
 
+function UploadThemeModal({
+  uploadApi,
+  onClose
+}: {
+  uploadApi: string;
+  onClose: () => void;
+}) {
+  const [file, setFile] = React.useState<File | null>(null);
+  const [isUploading, setIsUploading] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const inputRef = React.useRef<HTMLInputElement | null>(null);
+
+  async function submit() {
+    if (!file) {
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+    const formData = new FormData();
+    formData.append('theme', file);
+
+    try {
+      const response = await fetch(uploadApi, {
+        method: 'POST',
+        body: formData
+      });
+      const payload = await response.json();
+      if (!response.ok) {
+        setError(payload?.error?.message || 'Nao foi possivel enviar o tema.');
+        return;
+      }
+      window.location.reload();
+    } catch (uploadError) {
+      setError('Nao foi possivel enviar o tema.');
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  function selectFile(selectedFile?: File | null) {
+    if (!selectedFile) {
+      setFile(null);
+      return;
+    }
+    if (!selectedFile.name.toLowerCase().endsWith('.zip')) {
+      setError('Envie um arquivo .zip do tema.');
+      setFile(null);
+      return;
+    }
+    if (selectedFile.size > 50 * 1024 * 1024) {
+      setError('O arquivo deve ter no maximo 50 MB.');
+      setFile(null);
+      return;
+    }
+    setError(null);
+    setFile(selectedFile);
+  }
+
+  return (
+    <div className="theme-upload-modal" role="dialog" aria-modal="true">
+      <div className="theme-upload-modal__backdrop" onClick={onClose} />
+      <div className="theme-upload-modal__panel">
+        <div className="theme-upload-modal__header">
+          <h2>Fazer upload do tema</h2>
+          <button type="button" className="button button--icon" onClick={onClose}>
+            <X size={18} />
+          </button>
+        </div>
+        <div className="theme-upload-modal__body">
+          <p>
+            Faca upload de um arquivo .zip do seu tema da Shopify. Por padrao,
+            os temas dos quais voce fizer upload nao serao publicados.
+          </p>
+          <p>Tamanho maximo do arquivo: 50 MB</p>
+          <button
+            type="button"
+            className="theme-upload-dropzone"
+            onClick={() => inputRef.current?.click()}
+          >
+            <span>
+              <Plus size={18} />
+              {file ? file.name : 'Adicionar arquivo'}
+            </span>
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".zip,application/zip,application/x-zip-compressed"
+            hidden
+            onChange={(event) => selectFile(event.target.files?.[0])}
+          />
+          {error && <p className="theme-upload-modal__error">{error}</p>}
+        </div>
+        <div className="theme-upload-modal__footer">
+          <button type="button" className="button" onClick={onClose}>
+            Cancelar
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={!file || isUploading}
+            onClick={submit}
+          >
+            {isUploading ? 'Enviando...' : 'Fazer upload de arquivo'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function OnlineStore({
   storeThemes = [],
-  importUrl
+  uploadApi
 }: OnlineStoreProps) {
+  const [uploadModalOpen, setUploadModalOpen] = React.useState(false);
   const activeTheme =
     storeThemes.find((theme) => theme.role === 'main') || storeThemes[0];
   const draftThemes = storeThemes.filter((theme) => theme !== activeTheme);
@@ -240,11 +355,15 @@ export default function OnlineStore({
       <section className="online-store-drafts">
         <div className="online-store-section-heading">
           <h2>Rascunhos de tema</h2>
-          <a href={importUrl} className="button">
+          <button
+            type="button"
+            className="button"
+            onClick={() => setUploadModalOpen(true)}
+          >
             <Upload size={16} />
             Importar
             <ChevronDown size={16} />
-          </a>
+          </button>
         </div>
         <div className="online-store-draft-list">
           {draftThemes.length > 0 ? (
@@ -259,6 +378,12 @@ export default function OnlineStore({
           )}
         </div>
       </section>
+      {uploadModalOpen && (
+        <UploadThemeModal
+          uploadApi={uploadApi}
+          onClose={() => setUploadModalOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -288,6 +413,6 @@ export const query = `
       publishApi
       previewUrl
     }
-    importUrl: url(routeId: "onlineStoreThemeImport")
+    uploadApi: url(routeId: "uploadStoreTheme")
   }
 `;

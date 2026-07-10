@@ -1,34 +1,76 @@
 .theme-editor-page {
-  height: calc(100vh - 68px);
+  height: calc(100vh - 48px);
   margin: -1.5rem;
   background: #f1f1f1;
 }
 
 .theme-editor-topbar {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
   align-items: center;
-  justify-content: space-between;
   gap: 1rem;
-  padding: 0.75rem 1rem;
+  height: 58px;
+  padding: 0 0.75rem;
   border-bottom: 1px solid #d8d8d8;
   background: #fff;
 }
 
-.theme-editor-topbar .page-heading {
-  margin: 0;
-  padding: 0;
+.theme-editor-left-actions,
+.theme-editor-actions,
+.theme-editor-title,
+.theme-editor-template {
+  display: flex;
+  align-items: center;
+}
+
+.theme-editor-left-actions,
+.theme-editor-actions {
+  gap: 0.35rem;
 }
 
 .theme-editor-actions {
-  display: flex;
+  justify-content: flex-end;
+}
+
+.theme-editor-title {
+  gap: 0.55rem;
+  color: #202223;
+  font-weight: 600;
+}
+
+.theme-editor-template {
+  gap: 0.35rem;
+  padding-left: 1rem;
+  color: #303030;
+  font-weight: 500;
+}
+
+.theme-editor-icon-button {
+  display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #303030;
+}
+
+.theme-editor-icon-button:hover,
+.theme-editor-icon-button.active {
+  border-color: #d8d8d8;
+  background: #f4f4f4;
+}
+
+.theme-editor-icon-button:disabled {
+  color: #c9cccf;
 }
 
 .theme-editor-shell {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  height: calc(100% - 65px);
+  grid-template-columns: 300px minmax(0, 1fr);
+  height: calc(100% - 58px);
 }
 
 .theme-editor-sidebar {
@@ -37,36 +79,60 @@
   background: #fff;
 }
 
-.theme-editor-sidebar__header {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 1rem;
+.theme-editor-page-title {
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid #ebebeb;
+  color: #202223;
+  font-weight: 700;
+}
+
+.theme-editor-sidebar__block {
+  padding: 0.75rem 0.65rem;
   border-bottom: 1px solid #ebebeb;
 }
 
-.theme-editor-sidebar__group {
-  padding: 0.75rem;
+.theme-editor-sidebar__block h3 {
+  margin: 0 0 0.45rem;
+  padding: 0 0.35rem;
+  color: #303030;
+  font-size: 0.9rem;
+  font-weight: 700;
 }
 
 .theme-editor-sidebar__item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr) 18px;
   align-items: center;
-  justify-content: space-between;
   width: 100%;
-  min-height: 42px;
-  padding: 0 0.75rem;
+  min-height: 30px;
+  padding: 0 0.35rem;
   border: 0;
-  border-radius: 8px;
+  border-radius: 6px;
   background: transparent;
-  color: #202223;
+  color: #505050;
+  font-size: 0.86rem;
+  text-align: left;
+}
+
+.theme-editor-sidebar__item:hover {
+  background: #f4f4f4;
+}
+
+.theme-editor-add-section {
+  display: block;
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #005bd3;
   font-weight: 600;
   text-align: left;
 }
 
-.theme-editor-sidebar__item:hover,
-.theme-editor-sidebar__item.active {
-  background: #f1f1f1;
+.theme-editor-add-section:hover {
+  background: #f4f4f4;
 }
 
 .theme-editor-notice {
@@ -84,15 +150,15 @@
 }
 
 .theme-editor-preview {
-  padding: 1.5rem;
+  overflow: auto;
+  padding: 0;
+  background: #f1f1f1;
 }
 
 .theme-editor-preview iframe {
   width: 100%;
-  height: 100%;
-  min-height: calc(100vh - 150px);
-  border: 1px solid #d8d8d8;
-  border-radius: 12px;
+  min-height: calc(100vh - 106px);
+  border: 0;
   background: #fff;
 }
 
@@ -100,7 +166,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: calc(100vh - 130px);
+  min-height: calc(100vh - 106px);
+  padding: 1.5rem;
 }
 
 .theme-editor-preview--placeholder div {
@@ -114,8 +181,15 @@
 
 @media (max-width: 900px) {
   .theme-editor-topbar {
-    align-items: stretch;
-    flex-direction: column;
+    grid-template-columns: 1fr;
+    height: auto;
+    padding: 0.75rem;
+  }
+
+  .theme-editor-title,
+  .theme-editor-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
   }
 
   .theme-editor-shell {

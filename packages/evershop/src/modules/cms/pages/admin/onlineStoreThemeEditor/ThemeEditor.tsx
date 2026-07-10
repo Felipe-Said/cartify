@@ -1,12 +1,16 @@
-import { PageHeading } from '@components/admin/PageHeading.js';
 import {
   ChevronDown,
+  ChevronRight,
   Eye,
+  Home,
   Monitor,
+  MoreHorizontal,
   PanelLeft,
+  RotateCcw,
   Save,
   Settings,
-  Smartphone
+  Smartphone,
+  Undo2
 } from 'lucide-react';
 import React from 'react';
 import './ThemeEditor.scss';
@@ -30,37 +34,53 @@ interface ThemeEditorProps {
   onlineStoreUrl: string;
 }
 
+const cartifySections = [
+  'Announcement bar',
+  'Header',
+  'Slideshow',
+  'Scrolling text',
+  'Collection list',
+  'Rich text',
+  'Image with text',
+  'Featured product',
+  'Gallery grid',
+  'Footer'
+];
+
 function Sidebar({ theme }: { theme: StoreTheme }) {
-  const sections =
+  const modelSections =
     theme.engine === 'shopify_liquid'
       ? [
           `Templates (${theme.templateCount})`,
           `Sections (${theme.sectionCount})`,
           `Locales (${theme.localeCount})`,
-          'Configuracoes do tema'
+          'Config'
         ]
-      : [
-          'Cabecalho',
-          'Pagina inicial',
-          'Produtos',
-          'Rodape',
-          'Configuracoes do tema'
-        ];
+      : cartifySections;
 
   return (
     <aside className="theme-editor-sidebar">
-      <div className="theme-editor-sidebar__header">
-        <PanelLeft size={18} />
-        <strong>{theme.label}</strong>
-      </div>
-      <div className="theme-editor-sidebar__group">
-        <button type="button" className="theme-editor-sidebar__item active">
-          <span>Loja virtual</span>
-          <ChevronDown size={16} />
-        </button>
-        {sections.map((section) => (
+      <div className="theme-editor-page-title">Pagina inicial</div>
+      <div className="theme-editor-sidebar__block">
+        <h3>Header</h3>
+        {modelSections.slice(0, 2).map((section) => (
           <button type="button" className="theme-editor-sidebar__item" key={section}>
+            <ChevronRight size={14} />
             <span>{section}</span>
+            <Eye size={14} />
+          </button>
+        ))}
+        <button type="button" className="theme-editor-add-section">
+          Adicionar secao
+        </button>
+      </div>
+      <div className="theme-editor-sidebar__block">
+        <h3>Modelo</h3>
+        {modelSections.slice(2).map((section) => (
+          <button type="button" className="theme-editor-sidebar__item" key={section}>
+            <ChevronRight size={14} />
+            <span>{section}</span>
+            <Eye size={14} />
           </button>
         ))}
       </div>
@@ -68,8 +88,8 @@ function Sidebar({ theme }: { theme: StoreTheme }) {
         <div className="theme-editor-notice">
           <strong>Shopify Liquid detectado</strong>
           <p>
-            A estrutura do tema foi lida. A renderizacao completa exige o
-            adaptador Liquid do Cartify.
+            Templates, sections, snippets e locales foram reconhecidos. A
+            renderizacao fiel depende do adaptador Liquid do Cartify.
           </p>
         </div>
       )}
@@ -84,9 +104,9 @@ function Preview({ theme }: { theme: StoreTheme }) {
         <div>
           <h2>{theme.label}</h2>
           <p>
-            Tema Shopify preparado para importacao. Templates, sections e
-            locales ja sao reconhecidos; falta plugar o renderizador Liquid para
-            preview visual fiel.
+            Tema Shopify importado. O editor mostra a estrutura e prepara o
+            tema; o preview Liquid completo entra quando o adaptador estiver
+            conectado.
           </p>
         </div>
       </div>
@@ -107,7 +127,12 @@ export default function ThemeEditor({
   if (!theme) {
     return (
       <div className="theme-editor-page">
-        <PageHeading heading="Tema nao encontrado" backUrl={onlineStoreUrl} />
+        <div className="theme-editor-topbar">
+          <a href={onlineStoreUrl} className="theme-editor-icon-button">
+            <Undo2 size={18} />
+          </a>
+          <strong>Tema nao encontrado</strong>
+        </div>
       </div>
     );
   }
@@ -115,27 +140,45 @@ export default function ThemeEditor({
   return (
     <div className="theme-editor-page">
       <div className="theme-editor-topbar">
-        <PageHeading heading="Editor de tema" backUrl={onlineStoreUrl} />
-        <div className="theme-editor-actions">
-          <button type="button" className="button">
-            <Smartphone size={16} />
-          </button>
-          <button type="button" className="button">
-            <Monitor size={16} />
-          </button>
-          <a
-            href={theme.previewUrl || '/'}
-            target="_blank"
-            rel="noreferrer"
-            className="button"
-          >
-            <Eye size={16} />
-            Visualizar
+        <div className="theme-editor-left-actions">
+          <a href={onlineStoreUrl} className="theme-editor-icon-button">
+            <Undo2 size={18} />
           </a>
-          <button type="button" className="button">
-            <Settings size={16} />
+          <button type="button" className="theme-editor-icon-button active">
+            <PanelLeft size={18} />
           </button>
-          <button type="button" className="button button--primary">
+          <button type="button" className="theme-editor-icon-button">
+            <Settings size={18} />
+          </button>
+        </div>
+        <div className="theme-editor-title">
+          <span>{theme.label}</span>
+          <span className="status-pill status-pill--active">
+            {theme.status === 'ready' ? 'Ativo' : 'Rascunho'}
+          </span>
+          <span className="theme-editor-template">
+            <Home size={16} />
+            Pagina inicial
+            <ChevronDown size={16} />
+          </span>
+        </div>
+        <div className="theme-editor-actions">
+          <button type="button" className="theme-editor-icon-button">
+            <Monitor size={17} />
+          </button>
+          <button type="button" className="theme-editor-icon-button">
+            <Smartphone size={17} />
+          </button>
+          <button type="button" className="theme-editor-icon-button" disabled>
+            <RotateCcw size={17} />
+          </button>
+          <button type="button" className="theme-editor-icon-button" disabled>
+            <Undo2 size={17} />
+          </button>
+          <button type="button" className="theme-editor-icon-button">
+            <MoreHorizontal size={18} />
+          </button>
+          <button type="button" className="button button--primary" disabled>
             <Save size={16} />
             Salvar
           </button>
