@@ -222,6 +222,10 @@ function createLiquid(themeName: string, themePath: string) {
   });
 
   const assetUrl = (value: any) => {
+    if (typeof value === 'string' && value.startsWith('shopify://shop_images/')) {
+      const filename = value.split('/').pop() || '';
+      return `/themes/${encodeURIComponent(themeName)}/assets/${filename}`;
+    }
     if (value?.url) {
       return String(value.url);
     }
@@ -280,7 +284,11 @@ async function renderSectionConfig(
   const orderedBlocks = (section.block_order || Object.keys(blocksById))
     .map((id) => ({
       id,
-      ...(blocksById[id] as Record<string, unknown>)
+      ...(blocksById[id] as Record<string, unknown>),
+      settings: normalizeSettings(
+        { current: (blocksById[id] as any)?.settings || {} },
+        path.basename(themePath)
+      )
     }))
     .filter((block: any) => !block.disabled);
 
@@ -288,7 +296,10 @@ async function renderSectionConfig(
     section: {
       id: sectionId,
       type: section.type,
-      settings: section.settings || {},
+      settings: normalizeSettings(
+        { current: section.settings || {} },
+        path.basename(themePath)
+      ),
       blocks: orderedBlocks,
       blocks_by_id: blocksById
     },

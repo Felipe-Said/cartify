@@ -1,5 +1,5 @@
 {
   "methods": ["GET"],
   "path": "/themes/:theme/assets/*",
-  "access": "private"
+  "access": "public"
 }
