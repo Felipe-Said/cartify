@@ -2,6 +2,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { Liquid } from 'liquidjs';
 import { CONSTANTS } from '../../../../lib/helpers.js';
+import { parseShopifyJson } from '../../../../lib/shopify-theme/parseShopifyJson.js';
 import { readShopifyTheme } from '../../../../lib/shopify-theme/readShopifyTheme.js';
 
 type ShopifySectionConfig = {
@@ -50,7 +51,7 @@ async function readJsonIfExists<T>(filePath: string): Promise<T | null> {
   if (!content) {
     return null;
   }
-  return JSON.parse(content) as T;
+  return parseShopifyJson<T>(content);
 }
 
 async function listFiles(rootPath: string) {

@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import { CONSTANTS } from '../../../../lib/helpers.js';
+import { parseShopifyJson } from '../../../../lib/shopify-theme/parseShopifyJson.js';
 
 type ThemeSetting = Record<string, any>;
 
@@ -40,7 +41,7 @@ function safeTemplatePath(template: string) {
 
 async function readJson<T>(filePath: string, fallback: T): Promise<T> {
   try {
-    return JSON.parse(await fs.readFile(filePath, 'utf8')) as T;
+    return parseShopifyJson<T>(await fs.readFile(filePath, 'utf8'));
   } catch (error: any) {
     if (error?.code === 'ENOENT') {
       return fallback;
@@ -59,7 +60,7 @@ async function readSectionSchema(rootPath: string, type: string) {
     return null;
   }
   try {
-    return JSON.parse(match[1].trim()) as ThemeSchema;
+    return parseShopifyJson<ThemeSchema>(match[1].trim());
   } catch {
     return null;
   }

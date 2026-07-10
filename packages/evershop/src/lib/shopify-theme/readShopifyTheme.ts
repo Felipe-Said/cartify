@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import { parseShopifyJson } from './parseShopifyJson.js';
 
 export const SHOPIFY_THEME_DIRECTORIES = [
   'assets',
@@ -121,7 +122,7 @@ async function readJsonIfExists(filePath: string) {
     return null;
   }
   const content = await fs.readFile(filePath, 'utf8');
-  return JSON.parse(content);
+  return parseShopifyJson(content);
 }
 
 export async function readShopifyTheme(

@@ -59,6 +59,7 @@
     "extract-zip": "^2.0.1",
     "liquidjs": "^10.27.2",
     "multer": "^2.1.1",
+    "strip-json-comments": "^3.1.1",
     "uuid": "^13.0.0"
   }
 }
