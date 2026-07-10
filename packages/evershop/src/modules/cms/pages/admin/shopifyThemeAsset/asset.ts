@@ -27,7 +27,10 @@ export default async (
 ) => {
   try {
     const assetName = String(request.params[0] || '');
-    const assetPath = getShopifyThemeAssetPath(request.params.theme, assetName);
+    const assetPath = await getShopifyThemeAssetPath(
+      request.params.theme,
+      assetName
+    );
     const buffer = await fs.readFile(assetPath);
     const ext = path.extname(assetPath).toLowerCase();
     response.setHeader(

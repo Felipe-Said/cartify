@@ -69,37 +69,26 @@ async function listFiles(rootPath: string) {
 }
 
 function withShopifyTags(source: string) {
-  const liquidBlockNormalized = source.replace(
+  const liquidBlocks = source.replace(
     /{%-?\s*liquid\s*([\s\S]*?)\s*-?%}/g,
     (_match, statements: string) =>
-      `{% liquid\n${statements
-        .replace(
-          /(^|\r?\n)(\s*)render\s+['"]([^'"]+)['"][^\r\n]*/g,
-          '$1$2include \'snippets/$3.liquid\''
-        )
-        .replace(
-          /(^|\r?\n)(\s*)include\s+['"]([^/'"]+)['"][^\r\n]*/g,
-          '$1$2include \'snippets/$3.liquid\''
-        )}\n%}`
+      `{% liquid\n${statements.replace(
+        /(^|\r?\n)(\s*)render(?=\s+)/g,
+        '$1$2include'
+      )}\n%}`
   );
 
-  return liquidBlockNormalized
+  return liquidBlocks
     .replace(
       /{%-?\s*section\s+['"]([^'"]+)['"]\s*-?%}/g,
       "{% include 'sections/$1.liquid' %}"
     )
-    // Shopify accepts `render` with comma arguments, `with` and `for`.
-    // LiquidJS does not resolve Shopify snippet paths by default, so normalize
-    // every variant to the extracted snippets directory.
+    // LiquidJS isolates all variables inside `render`, including Shopify
+    // global objects such as settings, shop and routes. Include preserves the
+    // context and still supports Shopify's named snippet arguments.
     .replace(
-      /{%-?\s*render\s+['"]([^'"]+)['"][\s\S]*?-?%}/g,
-      "{% include 'snippets/$1.liquid' %}"
-    )
-    // Older Shopify themes can still use the deprecated include tag for
-    // snippets. It needs the same path normalization as render.
-    .replace(
-      /{%-?\s*include\s+['"]([^/'"]+)['"][\s\S]*?-?%}/g,
-      "{% include 'snippets/$1.liquid' %}"
+      /{%-?\s*render(\s+['"][^'"]+['"][\s\S]*?)\s*-?%}/g,
+      '{% include$1 %}'
     )
     // Shopify's form tag is a server-side helper. A preview can preserve the
     // visual markup without attempting to submit to Shopify.
@@ -192,6 +181,21 @@ function normalizeShopifyValue(value: any): any {
         url: themeAssetUrl('__THEME__', filename)
       };
     }
+    const fontMatch = value.match(/^(.+)_([ni])(\d)$/);
+    if (fontMatch) {
+      const family = fontMatch[1]
+        .split('_')
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+      return {
+        family,
+        fallback_families: 'Arial, sans-serif',
+        style: fontMatch[2] === 'i' ? 'italic' : 'normal',
+        weight: Number(fontMatch[3]) * 100,
+        system: true,
+        'system?': true
+      };
+    }
     return value;
   }
   if (Array.isArray(value)) {
@@ -205,8 +209,27 @@ function normalizeShopifyValue(value: any): any {
   );
 }
 
-function normalizeSettings(settingsData: any, themeName: string) {
-  const current = normalizeShopifyValue(settingsData?.current || settingsData || {});
+function schemaDefaults(settingsSchema: any) {
+  if (!Array.isArray(settingsSchema)) {
+    return {};
+  }
+  return Object.fromEntries(
+    settingsSchema
+      .flatMap((group) => group?.settings || [])
+      .filter((setting) => setting?.id && setting.default !== undefined)
+      .map((setting) => [setting.id, setting.default])
+  );
+}
+
+function normalizeSettings(
+  settingsData: any,
+  themeName: string,
+  settingsSchema: any = []
+) {
+  const current = normalizeShopifyValue({
+    ...schemaDefaults(settingsSchema),
+    ...(settingsData?.current || settingsData || {})
+  });
   if (current?.color_schemes && !Array.isArray(current.color_schemes)) {
     current.color_schemes = Object.entries(current.color_schemes).map(
       ([id, scheme]: [string, any]) => ({
@@ -223,9 +246,36 @@ function normalizeSettings(settingsData: any, themeName: string) {
   );
 }
 
-function createLiquid(themeName: string, themePath: string) {
+function translationValue(translations: any, key: string) {
+  return key.split('.').reduce((current, part) => current?.[part], translations);
+}
+
+async function loadTranslations(themePath: string) {
+  const candidates = [
+    'pt-BR.json',
+    'pt-BR.default.json',
+    'pt.json',
+    'en.default.json',
+    'en.json'
+  ];
+  for (const candidate of candidates) {
+    const translations = await readJsonIfExists<any>(
+      path.join(themePath, 'locales', candidate)
+    );
+    if (translations) {
+      return translations;
+    }
+  }
+  return {};
+}
+
+function createLiquid(themeName: string, themePath: string, translations: any) {
   const liquid = new Liquid({
-    root: themePath,
+    root: [
+      themePath,
+      path.join(themePath, 'snippets'),
+      path.join(themePath, 'sections')
+    ],
     extname: '.liquid',
     cache: false,
     strictFilters: false,
@@ -234,6 +284,12 @@ function createLiquid(themeName: string, themePath: string) {
   });
 
   const assetUrl = (value: any) => {
+    if (
+      typeof value === 'string' &&
+      (value.startsWith('/') || value.startsWith('http://') || value.startsWith('https://'))
+    ) {
+      return value;
+    }
     if (typeof value === 'string' && value.startsWith('shopify://shop_images/')) {
       const filename = value.split('/').pop() || '';
       return themeAssetUrl(themeName, filename);
@@ -261,16 +317,62 @@ function createLiquid(themeName: string, themePath: string) {
     `<script src="${String(value)}" defer></script>`
   );
   liquid.registerFilter('placeholder_svg_tag', (value) =>
-    `<span class="cartify-placeholder-svg">${String(value || '')}</span>`
+    `<svg class="placeholder-svg" viewBox="0 0 1600 900" role="img" aria-label="${String(value || 'Imagem')}"><rect width="1600" height="900" fill="#e8e8e8"/><path d="M0 720 420 330l310 290 210-190 660 470H0Z" fill="#d2d2d2"/></svg>`
+  );
+  liquid.registerFilter('image_tag', (value, options: any = {}) => {
+    const src = assetUrl(value);
+    const alt = String(options?.alt || value?.alt || '');
+    const loading = String(options?.loading || 'lazy');
+    const className = options?.class ? ` class="${String(options.class)}"` : '';
+    return `<img src="${src}" alt="${alt}" loading="${loading}"${className}>`;
+  });
+  liquid.registerFilter('video_tag', (value, options: any = {}) => {
+    const src = assetUrl(value?.url || value?.sources?.[0]?.url || value);
+    const autoplay = options?.autoplay ? ' autoplay' : '';
+    const loop = options?.loop ? ' loop' : '';
+    const muted = options?.muted === false ? '' : ' muted';
+    const controls = options?.controls === false ? '' : ' controls';
+    return `<video src="${src}"${autoplay}${loop}${muted}${controls}></video>`;
+  });
+  liquid.registerFilter('external_video_url', (value) =>
+    String(value?.external_id || value?.url || value || '')
+  );
+  liquid.registerFilter('external_video_tag', (value) =>
+    `<iframe src="${String(value || '')}" loading="lazy" allowfullscreen></iframe>`
   );
   liquid.registerFilter('font_url', () => '');
   liquid.registerFilter('font_face', () => '');
   liquid.registerFilter('font_modify', (value) => value);
-  liquid.registerFilter('t', (value) => String(value || ''));
+  liquid.registerFilter('t', (value) => {
+    const key = String(value || '');
+    const translated = translationValue(translations, key);
+    return typeof translated === 'string' ? translated : key;
+  });
   liquid.registerFilter('money', (value) => String(value || ''));
   liquid.registerFilter('money_with_currency', (value) => String(value || ''));
 
   return liquid;
+}
+
+async function compileLiquidAssets(
+  liquid: Liquid,
+  renderPath: string,
+  settings: any
+) {
+  const assetsPath = path.join(renderPath, 'assets');
+  if (!(await exists(assetsPath))) {
+    return;
+  }
+  const files = await listFiles(assetsPath);
+  await Promise.all(
+    files
+      .filter((file) => /\.(css|js|svg)\.liquid$/i.test(file))
+      .map(async (file) => {
+        const source = await fs.readFile(file, 'utf8');
+        const rendered = await liquid.parseAndRender(source, { settings });
+        await fs.writeFile(file.replace(/\.liquid$/i, ''), rendered);
+      })
+  );
 }
 
 async function renderSectionConfig(
@@ -439,8 +541,14 @@ export async function renderShopifyThemePreview(
   }
 
   const renderPath = await prepareRenderableTheme(themeName, themePath);
-  const liquid = createLiquid(themeName, renderPath);
-  const settings = normalizeSettings(manifest.settingsData, themeName);
+  const settings = normalizeSettings(
+    manifest.settingsData,
+    themeName,
+    manifest.settingsSchema
+  );
+  const translations = await loadTranslations(renderPath);
+  const liquid = createLiquid(themeName, renderPath, translations);
+  await compileLiquidAssets(liquid, renderPath, settings);
   const template = options.template || 'index';
   const layoutSource = await readTextIfExists(
     path.join(renderPath, 'layout', 'theme.liquid')
@@ -491,12 +599,28 @@ export async function renderShopifyThemePreview(
   return html;
 }
 
-export function getShopifyThemeAssetPath(themeName: string, assetName: string) {
+export async function getShopifyThemeAssetPath(
+  themeName: string,
+  assetName: string
+) {
   const themePath = assertThemePath(themeName);
   const assetPath = path.resolve(themePath, 'assets', assetName);
   const assetsRoot = path.resolve(themePath, 'assets');
   if (!assetPath.startsWith(assetsRoot + path.sep)) {
     throw new Error('Invalid asset path.');
+  }
+  const cacheAssetsRoot = path.resolve(
+    CONSTANTS.CACHEPATH,
+    'shopify-preview',
+    themeName,
+    'assets'
+  );
+  const cachedAssetPath = path.resolve(cacheAssetsRoot, assetName);
+  if (!cachedAssetPath.startsWith(cacheAssetsRoot + path.sep)) {
+    throw new Error('Invalid cached asset path.');
+  }
+  if (await exists(cachedAssetPath)) {
+    return cachedAssetPath;
   }
   return assetPath;
 }
