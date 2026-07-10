@@ -35,18 +35,19 @@ export default async (request: CartifyRequest, response, next) => {
         const adminSessionData = await getSession(sessionID);
         if (adminSessionData) {
           // Set the user in the context
-          currentAdminUser = await select()
+          const query = select()
             .from('admin_user')
+            .where('admin_user.admin_user_id', '=', adminSessionData.userID)
+            .and('admin_user.status', '=', 1)
+            .and('admin_user_store.store_id', '=', getCurrentStoreId());
+          query
             .innerJoin('admin_user_store')
             .on(
               'admin_user.admin_user_id',
               '=',
               'admin_user_store.admin_user_id'
-            )
-            .where('admin_user.admin_user_id', '=', adminSessionData.userID)
-            .and('admin_user.status', '=', 1)
-            .and('admin_user_store.store_id', '=', getCurrentStoreId())
-            .load(pool);
+            );
+          currentAdminUser = await query.load(pool);
 
           if (currentAdminUser) {
             // Delete the password field if present (cast to any to avoid TS error)

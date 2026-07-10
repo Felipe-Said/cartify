@@ -18,14 +18,16 @@ const _loginUserWithEmail = async function loginUserWithEmail(
 ): Promise<void> {
   // Escape the email to prevent SQL injection
   const userEmail = email.replace(/%/g, '\\%');
-  const user = await select()
+  const query = select()
     .from('admin_user')
-    .innerJoin('admin_user_store')
-    .on('admin_user.admin_user_id', '=', 'admin_user_store.admin_user_id')
     .where('admin_user.email', 'ILIKE', userEmail)
     .and('admin_user.status', '=', 1)
-    .and('admin_user_store.store_id', '=', getCurrentStoreId())
-    .load(pool);
+    .and('admin_user_store.store_id', '=', getCurrentStoreId());
+  query
+    .innerJoin('admin_user_store')
+    .on('admin_user.admin_user_id', '=', 'admin_user_store.admin_user_id');
+
+  const user = await query.load(pool);
   const result = comparePassword(password, user ? user.password : '');
   if (!user || !result) {
     throw new Error('Invalid email or password');
