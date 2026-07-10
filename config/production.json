@@ -6,5 +6,8 @@
   },
   "system": {
     "extensions": []
+  },
+  "themeConfig": {
+    "copyRight": "(c) 2026 Cartify. All Rights Reserved."
   }
 }

@@ -2,6 +2,7 @@ import { select } from '@evershop/postgres-query-builder';
 import { pool } from '../../../lib/postgres/connection.js';
 import { hookable, hookBefore, hookAfter } from '../../../lib/util/hookable.js';
 import { comparePassword } from '../../../lib/util/passwordHelper.js';
+import { getCurrentStoreId } from '../../tenant/services/tenantContext.js';
 import { buildAdminUserPayload } from './buildAdminUserPayload.js';
 
 /**
@@ -19,8 +20,11 @@ const _loginUserWithEmail = async function loginUserWithEmail(
   const userEmail = email.replace(/%/g, '\\%');
   const user = await select()
     .from('admin_user')
-    .where('email', 'ILIKE', userEmail)
-    .and('status', '=', 1)
+    .innerJoin('admin_user_store')
+    .on('admin_user.admin_user_id', '=', 'admin_user_store.admin_user_id')
+    .where('admin_user.email', 'ILIKE', userEmail)
+    .and('admin_user.status', '=', 1)
+    .and('admin_user_store.store_id', '=', getCurrentStoreId())
     .load(pool);
   const result = comparePassword(password, user ? user.password : '');
   if (!user || !result) {

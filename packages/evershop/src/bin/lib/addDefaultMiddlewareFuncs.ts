@@ -16,6 +16,7 @@ import { getAdminSessionCookieName } from '../../modules/auth/services/getAdminS
 import { getCookieSecret } from '../../modules/auth/services/getCookieSecret.js';
 import { getFrontStoreSessionCookieName } from '../../modules/auth/services/getFrontStoreSessionCookieName.js';
 import { setPageMetaInfo } from '../../modules/cms/services/pageMetaInfo.js';
+import tenantContext from '../../modules/tenant/middleware/tenantContext.js';
 import { getDevMiddleware, getHotMiddleware } from './devEnvHelper.js';
 
 export function addDefaultMiddlewareFuncs(app) {
@@ -79,6 +80,7 @@ export function addDefaultMiddlewareFuncs(app) {
 
   // Cookie parser
   app.use(cookieParser(cookieSecret));
+  app.use(tenantContext);
   app.use((request, response, next) => {
     const routes = getRoutes();
     const method = request.method.toUpperCase();

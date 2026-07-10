@@ -23,6 +23,13 @@ export interface CurrentUser {
   updated_at: Date;
 }
 
+export interface CurrentStore {
+  storeId: number;
+  handle: string;
+  name: string;
+  domain?: string | null;
+}
+
 export interface CartifyRequest extends ExpressRequest {
   isAdmin: boolean;
   currentRoute: Route;
@@ -37,6 +44,7 @@ export interface CartifyRequest extends ExpressRequest {
     };
     user: CurrentUser | null;
     customer: CurrentCustomer | null;
+    store?: CurrentStore;
     context: Record<string, any>;
     webpackMatchedRoute: Route | null;
   };

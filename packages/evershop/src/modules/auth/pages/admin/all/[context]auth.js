@@ -1,14 +1,18 @@
 import { select } from '@evershop/postgres-query-builder';
 import { pool } from '../../../../../lib/postgres/connection.js';
 import { buildUrl } from '../../../../../lib/router/buildUrl.js';
+import { getCurrentStoreId } from '../../../../tenant/services/tenantContext.js';
 
 export default async (request, response, next) => {
   const { userID } = request.session;
   // Load the user from the database
   const user = await select()
     .from('admin_user')
-    .where('admin_user_id', '=', userID)
-    .and('status', '=', 1)
+    .innerJoin('admin_user_store')
+    .on('admin_user.admin_user_id', '=', 'admin_user_store.admin_user_id')
+    .where('admin_user.admin_user_id', '=', userID)
+    .and('admin_user.status', '=', 1)
+    .and('admin_user_store.store_id', '=', getCurrentStoreId())
     .load(pool);
 
   if (!user) {
