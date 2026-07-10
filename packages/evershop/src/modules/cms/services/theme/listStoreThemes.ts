@@ -16,6 +16,10 @@ export type StoreTheme = {
   templateCount: number;
   sectionCount: number;
   localeCount: number;
+  templates: string[];
+  sections: string[];
+  snippets: string[];
+  locales: string[];
   errors: string[];
   warnings: string[];
 };
@@ -33,6 +37,10 @@ function getDefaultTheme(): StoreTheme {
     templateCount: 0,
     sectionCount: 0,
     localeCount: 0,
+    templates: [],
+    sections: [],
+    snippets: [],
+    locales: [],
     errors: [],
     warnings: []
   };
@@ -88,6 +96,10 @@ async function readTheme(themeName: string): Promise<StoreTheme | null> {
       templateCount: manifest.templates.length,
       sectionCount: manifest.sections.length,
       localeCount: manifest.locales.length,
+      templates: manifest.templates,
+      sections: manifest.sections,
+      snippets: manifest.snippets,
+      locales: manifest.locales,
       errors: manifest.errors,
       warnings: manifest.warnings
     };
@@ -105,6 +117,10 @@ async function readTheme(themeName: string): Promise<StoreTheme | null> {
     templateCount: 0,
     sectionCount: 0,
     localeCount: 0,
+    templates: [],
+    sections: [],
+    snippets: [],
+    locales: [],
     errors: hasCartifySource || hasCartifyBuild ? [] : ['Theme source not found.'],
     warnings: []
   };

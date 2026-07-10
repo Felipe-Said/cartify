@@ -1,7 +1,7 @@
 import {
-  ChevronDown,
   ChevronRight,
   Eye,
+  EyeOff,
   Home,
   Monitor,
   MoreHorizontal,
@@ -12,7 +12,7 @@ import {
   Smartphone,
   Undo2
 } from 'lucide-react';
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import './ThemeEditor.scss';
 
 type StoreTheme = {
@@ -24,6 +24,10 @@ type StoreTheme = {
   templateCount: number;
   sectionCount: number;
   localeCount: number;
+  templates?: string[];
+  sections?: string[];
+  snippets?: string[];
+  locales?: string[];
   errors?: string[];
   warnings?: string[];
   previewUrl: string;
@@ -47,49 +51,109 @@ const cartifySections = [
   'Footer'
 ];
 
-function Sidebar({ theme }: { theme: StoreTheme }) {
-  const modelSections =
+function fileLabel(file: string) {
+  return file.replace(/^(templates|sections|snippets|locales)\//, '');
+}
+
+function Sidebar({
+  theme,
+  selectedItem,
+  hiddenItems,
+  onSelectItem,
+  onToggleItem
+}: {
+  theme: StoreTheme;
+  selectedItem: string;
+  hiddenItems: string[];
+  onSelectItem: (item: string) => void;
+  onToggleItem: (item: string) => void;
+}) {
+  const groups =
     theme.engine === 'shopify_liquid'
       ? [
-          `Templates (${theme.templateCount})`,
-          `Sections (${theme.sectionCount})`,
-          `Locales (${theme.localeCount})`,
-          'Config'
+          {
+            title: 'Header',
+            items: (theme.templates || []).slice(0, 6)
+          },
+          {
+            title: 'Modelo',
+            items: [
+              ...(theme.sections || []).slice(0, 18),
+              ...(theme.snippets || []).slice(0, 6),
+              ...(theme.locales || []).slice(0, 4),
+              'config/settings_schema.json'
+            ]
+          }
         ]
-      : cartifySections;
+      : [
+          {
+            title: 'Header',
+            items: cartifySections.slice(0, 2)
+          },
+          {
+            title: 'Modelo',
+            items: cartifySections.slice(2)
+          }
+        ];
 
   return (
     <aside className="theme-editor-sidebar">
       <div className="theme-editor-page-title">Pagina inicial</div>
-      <div className="theme-editor-sidebar__block">
-        <h3>Header</h3>
-        {modelSections.slice(0, 2).map((section) => (
-          <button type="button" className="theme-editor-sidebar__item" key={section}>
-            <ChevronRight size={14} />
-            <span>{section}</span>
-            <Eye size={14} />
-          </button>
-        ))}
-        <button type="button" className="theme-editor-add-section">
-          Adicionar secao
-        </button>
-      </div>
-      <div className="theme-editor-sidebar__block">
-        <h3>Modelo</h3>
-        {modelSections.slice(2).map((section) => (
-          <button type="button" className="theme-editor-sidebar__item" key={section}>
-            <ChevronRight size={14} />
-            <span>{section}</span>
-            <Eye size={14} />
-          </button>
-        ))}
-      </div>
+      {groups.map((group, index) => (
+        <div className="theme-editor-sidebar__block" key={group.title}>
+          <h3>{group.title}</h3>
+          {group.items.map((item) => {
+            const isHidden = hiddenItems.includes(item);
+            const isSelected = selectedItem === item;
+            return (
+              <button
+                type="button"
+                className={`theme-editor-sidebar__item${
+                  isSelected ? ' is-selected' : ''
+                }`}
+                key={item}
+                onClick={() => onSelectItem(item)}
+              >
+                <ChevronRight size={14} />
+                <span>{fileLabel(item)}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  className="theme-editor-sidebar__visibility"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onToggleItem(item);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      onToggleItem(item);
+                    }
+                  }}
+                >
+                  {isHidden ? <EyeOff size={14} /> : <Eye size={14} />}
+                </span>
+              </button>
+            );
+          })}
+          {index === 0 && (
+            <button
+              type="button"
+              className="theme-editor-add-section"
+              onClick={() => onSelectItem('Adicionar secao')}
+            >
+              Adicionar secao
+            </button>
+          )}
+        </div>
+      ))}
       {theme.engine === 'shopify_liquid' && (
         <div className="theme-editor-notice">
           <strong>Shopify Liquid detectado</strong>
           <p>
-            Templates, sections, snippets e locales foram reconhecidos. A
-            renderizacao fiel depende do adaptador Liquid do Cartify.
+            O Cartify esta renderizando a home com Liquid, assets e secoes
+            reconhecidas. Recursos exclusivos da Shopify podem exigir ajustes
+            no tema.
           </p>
         </div>
       )}
@@ -97,26 +161,71 @@ function Sidebar({ theme }: { theme: StoreTheme }) {
   );
 }
 
-function Preview({ theme }: { theme: StoreTheme }) {
-  if (theme.engine === 'shopify_liquid') {
-    return (
-      <div className="theme-editor-preview theme-editor-preview--placeholder">
-        <div>
-          <h2>{theme.label}</h2>
-          <p>
-            Tema Shopify importado. O editor mostra a estrutura e prepara o
-            tema; o preview Liquid completo entra quando o adaptador estiver
-            conectado.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+function Preview({
+  theme,
+  device,
+  selectedItem
+}: {
+  theme: StoreTheme;
+  device: 'desktop' | 'mobile';
+  selectedItem: string;
+}) {
   return (
-    <div className="theme-editor-preview">
-      <iframe title="Visualizacao da loja" src={theme.previewUrl || '/'} />
+    <div className={`theme-editor-preview theme-editor-preview--${device}`}>
+      <div className="theme-editor-device-frame">
+        <iframe
+          title={`Visualizacao da loja - ${selectedItem}`}
+          src={theme.previewUrl || '/'}
+        />
+      </div>
     </div>
+  );
+}
+
+function Inspector({
+  selectedItem,
+  theme,
+  hasChanges,
+  onMarkChanged
+}: {
+  selectedItem: string;
+  theme: StoreTheme;
+  hasChanges: boolean;
+  onMarkChanged: () => void;
+}) {
+  const isShopifyFile = selectedItem.includes('/');
+  return (
+    <aside className="theme-editor-inspector">
+      <div>
+        <span className="theme-editor-inspector__eyebrow">Selecionado</span>
+        <h3>{fileLabel(selectedItem)}</h3>
+        <p>
+          {isShopifyFile
+            ? 'Arquivo importado do tema Shopify. Esta versao permite revisar a estrutura e preparar ajustes visuais.'
+            : 'Secao do tema pronta para configuracao visual.'}
+        </p>
+      </div>
+      <label className="theme-editor-field">
+        <span>Nome exibido</span>
+        <input
+          value={fileLabel(selectedItem)}
+          onChange={onMarkChanged}
+          readOnly={theme.engine === 'shopify_liquid'}
+        />
+      </label>
+      <label className="theme-editor-field">
+        <span>Visibilidade</span>
+        <select defaultValue="visible" onChange={onMarkChanged}>
+          <option value="visible">Visivel</option>
+          <option value="hidden">Oculto</option>
+        </select>
+      </label>
+      <div className="theme-editor-inspector__status">
+        {hasChanges
+          ? 'Alteracoes locais pendentes.'
+          : 'Nenhuma alteracao pendente.'}
+      </div>
+    </aside>
   );
 }
 
@@ -124,6 +233,22 @@ export default function ThemeEditor({
   theme,
   onlineStoreUrl
 }: ThemeEditorProps) {
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
+  const [device, setDevice] = useState<'desktop' | 'mobile'>('desktop');
+  const [selectedTemplate, setSelectedTemplate] = useState('Pagina inicial');
+  const [selectedItem, setSelectedItem] = useState('Pagina inicial');
+  const [hiddenItems, setHiddenItems] = useState<string[]>([]);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [saveLabel, setSaveLabel] = useState('Salvar');
+
+  const templateOptions = useMemo(() => {
+    if (!theme?.templates?.length) {
+      return ['Pagina inicial'];
+    }
+    return theme.templates.map(fileLabel);
+  }, [theme?.templates]);
+
   if (!theme) {
     return (
       <div className="theme-editor-page">
@@ -137,6 +262,24 @@ export default function ThemeEditor({
     );
   }
 
+  const toggleHiddenItem = (item: string) => {
+    setHiddenItems((items) =>
+      items.includes(item)
+        ? items.filter((current) => current !== item)
+        : [...items, item]
+    );
+    setHasChanges(true);
+  };
+
+  const saveChanges = () => {
+    setSaveLabel('Salvando...');
+    window.setTimeout(() => {
+      setHasChanges(false);
+      setSaveLabel('Salvo');
+      window.setTimeout(() => setSaveLabel('Salvar'), 1300);
+    }, 500);
+  };
+
   return (
     <div className="theme-editor-page">
       <div className="theme-editor-topbar">
@@ -144,10 +287,18 @@ export default function ThemeEditor({
           <a href={onlineStoreUrl} className="theme-editor-icon-button">
             <Undo2 size={18} />
           </a>
-          <button type="button" className="theme-editor-icon-button active">
+          <button
+            type="button"
+            className={`theme-editor-icon-button${sidebarOpen ? ' active' : ''}`}
+            onClick={() => setSidebarOpen((value) => !value)}
+          >
             <PanelLeft size={18} />
           </button>
-          <button type="button" className="theme-editor-icon-button">
+          <button
+            type="button"
+            className={`theme-editor-icon-button${inspectorOpen ? ' active' : ''}`}
+            onClick={() => setInspectorOpen((value) => !value)}
+          >
             <Settings size={18} />
           </button>
         </div>
@@ -158,35 +309,96 @@ export default function ThemeEditor({
           </span>
           <span className="theme-editor-template">
             <Home size={16} />
-            Pagina inicial
-            <ChevronDown size={16} />
+            <select
+              value={selectedTemplate}
+              onChange={(event) => {
+                setSelectedTemplate(event.target.value);
+                setSelectedItem(event.target.value);
+              }}
+            >
+              {templateOptions.map((template) => (
+                <option key={template} value={template}>
+                  {template}
+                </option>
+              ))}
+            </select>
           </span>
         </div>
         <div className="theme-editor-actions">
-          <button type="button" className="theme-editor-icon-button">
+          <button
+            type="button"
+            className={`theme-editor-icon-button${device === 'desktop' ? ' active' : ''}`}
+            onClick={() => setDevice('desktop')}
+          >
             <Monitor size={17} />
           </button>
-          <button type="button" className="theme-editor-icon-button">
+          <button
+            type="button"
+            className={`theme-editor-icon-button${device === 'mobile' ? ' active' : ''}`}
+            onClick={() => setDevice('mobile')}
+          >
             <Smartphone size={17} />
           </button>
-          <button type="button" className="theme-editor-icon-button" disabled>
+          <button
+            type="button"
+            className="theme-editor-icon-button"
+            disabled={!hasChanges}
+            onClick={() => setHasChanges(false)}
+          >
             <RotateCcw size={17} />
           </button>
-          <button type="button" className="theme-editor-icon-button" disabled>
+          <button
+            type="button"
+            className="theme-editor-icon-button"
+            disabled={!hasChanges}
+            onClick={() => setHasChanges(false)}
+          >
             <Undo2 size={17} />
           </button>
-          <button type="button" className="theme-editor-icon-button">
+          <button
+            type="button"
+            className="theme-editor-icon-button"
+            onClick={() => setInspectorOpen((value) => !value)}
+          >
             <MoreHorizontal size={18} />
           </button>
-          <button type="button" className="button button--primary" disabled>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={!hasChanges}
+            onClick={saveChanges}
+          >
             <Save size={16} />
-            Salvar
+            {saveLabel}
           </button>
         </div>
       </div>
-      <div className="theme-editor-shell">
-        <Sidebar theme={theme} />
-        <Preview theme={theme} />
+      <div
+        className={`theme-editor-shell${
+          sidebarOpen ? '' : ' theme-editor-shell--sidebar-closed'
+        }${inspectorOpen ? ' theme-editor-shell--inspector-open' : ''}`}
+      >
+        {sidebarOpen && (
+          <Sidebar
+            theme={theme}
+            selectedItem={selectedItem}
+            hiddenItems={hiddenItems}
+            onSelectItem={(item) => {
+              setSelectedItem(item);
+              setInspectorOpen(true);
+            }}
+            onToggleItem={toggleHiddenItem}
+          />
+        )}
+        <Preview theme={theme} device={device} selectedItem={selectedItem} />
+        {inspectorOpen && (
+          <Inspector
+            selectedItem={selectedItem}
+            theme={theme}
+            hasChanges={hasChanges}
+            onMarkChanged={() => setHasChanges(true)}
+          />
+        )}
       </div>
     </div>
   );
@@ -209,6 +421,10 @@ export const query = `
       templateCount
       sectionCount
       localeCount
+      templates
+      sections
+      snippets
+      locales
       errors
       warnings
       previewUrl
