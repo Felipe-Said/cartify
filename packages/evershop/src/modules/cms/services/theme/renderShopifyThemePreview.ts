@@ -68,7 +68,21 @@ async function listFiles(rootPath: string) {
 }
 
 function withShopifyTags(source: string) {
-  return source
+  const liquidBlockNormalized = source.replace(
+    /{%-?\s*liquid\s*([\s\S]*?)\s*-?%}/g,
+    (_match, statements: string) =>
+      `{% liquid\n${statements
+        .replace(
+          /(^|\r?\n)(\s*)render\s+['"]([^'"]+)['"][^\r\n]*/g,
+          '$1$2include \'snippets/$3.liquid\''
+        )
+        .replace(
+          /(^|\r?\n)(\s*)include\s+['"]([^/'"]+)['"][^\r\n]*/g,
+          '$1$2include \'snippets/$3.liquid\''
+        )}\n%}`
+  );
+
+  return liquidBlockNormalized
     .replace(
       /{%-?\s*section\s+['"]([^'"]+)['"]\s*-?%}/g,
       "{% include 'sections/$1.liquid' %}"
@@ -121,15 +135,19 @@ async function prepareRenderableTheme(themeName: string, themePath: string) {
   await fs.rm(renderPath, { recursive: true, force: true });
   const files = await listFiles(themePath);
   await Promise.all(
-    files
-      .filter((file) => path.extname(file) === '.liquid')
-      .map(async (file) => {
-        const relativePath = path.relative(themePath, file);
-        const targetPath = path.join(renderPath, relativePath);
-        await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    files.map(async (file) => {
+      const relativePath = path.relative(themePath, file);
+      const targetPath = path.join(renderPath, relativePath);
+      await fs.mkdir(path.dirname(targetPath), { recursive: true });
+      if (path.extname(file) === '.liquid') {
         const content = await fs.readFile(file, 'utf8');
         await fs.writeFile(targetPath, withShopifyTags(content));
-      })
+        return;
+      }
+      // JSON templates and section groups describe the storefront structure.
+      // They must accompany the transformed Liquid files in the render root.
+      await fs.copyFile(file, targetPath);
+    })
   );
   return renderPath;
 }
