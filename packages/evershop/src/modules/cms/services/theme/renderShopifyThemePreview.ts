@@ -149,14 +149,22 @@ function hexToRgb(value: string) {
   if (!/^[0-9a-f]{6}$/i.test(hex)) {
     return null;
   }
-  return {
-    red: parseInt(hex.slice(0, 2), 16),
-    green: parseInt(hex.slice(2, 4), 16),
-    blue: parseInt(hex.slice(4, 6), 16),
+  const red = parseInt(hex.slice(0, 2), 16);
+  const green = parseInt(hex.slice(2, 4), 16);
+  const blue = parseInt(hex.slice(4, 6), 16);
+  const color = {
+    red,
+    green,
+    blue,
     alpha: 1,
-    rgb: value,
+    rgb: `${red} ${green} ${blue}`,
     hex: value
   };
+  Object.defineProperty(color, 'toString', {
+    enumerable: false,
+    value: () => value
+  });
+  return color;
 }
 
 function themeAssetUrl(themeName: string, assetName: string) {
@@ -223,6 +231,30 @@ function schemaDefaults(settingsSchema: any) {
   );
 }
 
+function replaceThemeToken(value: any, themeName: string): any {
+  if (typeof value === 'string') {
+    return value.replaceAll(
+      '/admin/themes/__THEME__/',
+      `/admin/themes/${encodeURIComponent(themeName)}/`
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => replaceThemeToken(item, themeName));
+  }
+  if (!value || typeof value !== 'object') {
+    return value;
+  }
+  if (typeof value.hex === 'string' && value.rgb !== undefined) {
+    return hexToRgb(value.hex) || value;
+  }
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      replaceThemeToken(item, themeName)
+    ])
+  );
+}
+
 function normalizeSettings(
   settingsData: any,
   themeName: string,
@@ -240,12 +272,7 @@ function normalizeSettings(
       })
     );
   }
-  return JSON.parse(
-    JSON.stringify(current).replaceAll(
-      '/admin/themes/__THEME__/',
-      `/admin/themes/${encodeURIComponent(themeName)}/`
-    )
-  );
+  return replaceThemeToken(current, themeName);
 }
 
 function translationValue(translations: any, key: string) {
@@ -318,15 +345,47 @@ function createLiquid(themeName: string, themePath: string, translations: any) {
   liquid.registerFilter('script_tag', (value) =>
     `<script src="${String(value)}" defer></script>`
   );
-  liquid.registerFilter('placeholder_svg_tag', (value) =>
-    `<svg class="placeholder-svg" viewBox="0 0 1600 900" role="img" aria-label="${String(value || 'Imagem')}"><rect width="1600" height="900" fill="#e8e8e8"/><path d="M0 720 420 330l310 290 210-190 660 470H0Z" fill="#d2d2d2"/></svg>`
+  liquid.registerFilter('placeholder_svg_tag', (value, className = 'placeholder-svg') =>
+    `<svg class="${String(className || 'placeholder-svg')} placeholder-svg" viewBox="0 0 1600 900" role="img" aria-label="${String(value || 'Imagem')}"><rect width="1600" height="900" fill="#e8e8e8"/><path d="M0 720 420 330l310 290 210-190 660 470H0Z" fill="#d2d2d2"/></svg>`
   );
   liquid.registerFilter('image_tag', (value, options: any = {}) => {
     const src = assetUrl(value);
     const alt = String(options?.alt || value?.alt || '');
     const loading = String(options?.loading || 'lazy');
-    const className = options?.class ? ` class="${String(options.class)}"` : '';
-    return `<img src="${src}" alt="${alt}" loading="${loading}"${className}>`;
+    const attributes: string[] = [
+      `src="${src}"`,
+      `alt="${alt}"`,
+      `loading="${loading}"`
+    ];
+    const attributeMap: Record<string, string> = {
+      class: 'class',
+      sizes: 'sizes',
+      style: 'style',
+      id: 'id',
+      fetchpriority: 'fetchpriority',
+      draggable: 'draggable'
+    };
+    Object.entries(attributeMap).forEach(([option, attribute]) => {
+      if (options?.[option] !== undefined && options?.[option] !== '') {
+        attributes.push(`${attribute}="${String(options[option])}"`);
+      }
+    });
+    const width = Number(options?.width || value?.width || 0);
+    const height = Number(options?.height || value?.height || 0);
+    if (width > 0) attributes.push(`width="${width}"`);
+    if (height > 0) attributes.push(`height="${height}"`);
+    if (options?.widths) {
+      const widths = String(options.widths)
+        .split(',')
+        .map((item) => Number(item.trim()))
+        .filter((item) => item > 0);
+      if (widths.length > 0) {
+        attributes.push(
+          `srcset="${widths.map((item) => `${src} ${item}w`).join(', ')}"`
+        );
+      }
+    }
+    return `<img ${attributes.join(' ')}>`;
   });
   liquid.registerFilter('video_tag', (value, options: any = {}) => {
     const src = assetUrl(value?.url || value?.sources?.[0]?.url || value);
@@ -382,9 +441,10 @@ async function renderSectionConfig(
   themePath: string,
   sectionId: string,
   section: ShopifySectionConfig,
-  settings: any
+  settings: any,
+  groupName?: string
 ) {
-  if (!section.type) {
+  if (!section.type || (section as any).disabled) {
     return '';
   }
   const sectionPath = path.join(
@@ -401,6 +461,10 @@ async function renderSectionConfig(
     .map((id) => ({
       id,
       ...(blocksById[id] as Record<string, unknown>),
+      shopify_attributes: `data-shopify-editor-block='${JSON.stringify({
+        id,
+        type: (blocksById[id] as any)?.type || ''
+      })}'`,
       settings: normalizeSettings(
         { current: (blocksById[id] as any)?.settings || {} },
         path.basename(themePath)
@@ -408,19 +472,28 @@ async function renderSectionConfig(
     }))
     .filter((block: any) => !block.disabled);
 
-  return liquid.parseAndRender(source, {
-    section: {
+  const sectionObject = {
+    id: sectionId,
+    type: section.type,
+    settings: normalizeSettings(
+      { current: section.settings || {} },
+      path.basename(themePath)
+    ),
+    blocks: orderedBlocks,
+    blocks_by_id: blocksById,
+    shopify_attributes: `data-shopify-editor-section='${JSON.stringify({
       id: sectionId,
-      type: section.type,
-      settings: normalizeSettings(
-        { current: section.settings || {} },
-        path.basename(themePath)
-      ),
-      blocks: orderedBlocks,
-      blocks_by_id: blocksById
-    },
+      type: section.type
+    })}'`
+  };
+  const html = await liquid.parseAndRender(source, {
+    section: sectionObject,
     settings
   });
+  const groupClass = groupName
+    ? ` shopify-section-group-${groupName.replace(/[^a-zA-Z0-9_-]/g, '-')}`
+    : '';
+  return `<div id="shopify-section-${sectionId}" class="shopify-section${groupClass}" data-section-type="${section.type}">${html}</div>`;
 }
 
 async function renderIndexContent(
@@ -486,18 +559,12 @@ async function expandLayoutSections(
       expanded = expanded.replace(match[0], '');
       continue;
     }
-    const sectionHtml = await liquid.parseAndRender(
-      withShopifyTags(sectionSource),
-      {
-        section: {
-          id: sectionType,
-          type: sectionType,
-        settings: {},
-        blocks: [],
-        blocks_by_id: {}
-      },
-        settings
-      }
+    const sectionHtml = await renderSectionConfig(
+      liquid,
+      themePath,
+      sectionType,
+      { type: sectionType, settings: {}, blocks: {}, block_order: [] },
+      settings
     );
     expanded = expanded.replace(match[0], sectionHtml);
   }
@@ -527,7 +594,14 @@ async function expandSectionGroups(
         if (!section) {
           return '';
         }
-        return renderSectionConfig(liquid, themePath, sectionId, section, settings);
+        return renderSectionConfig(
+          liquid,
+          themePath,
+          sectionId,
+          section,
+          settings,
+          groupName
+        );
       })
     );
     expanded = expanded.replace(match[0], html.join('\n'));
@@ -584,6 +658,14 @@ export async function renderShopifyThemePreview(
     expandedLayout,
     settings
   );
+  const templateName = template
+    .replace(/^templates\//, '')
+    .replace(/\.(json|liquid)$/i, '');
+  const templateObject = { name: templateName };
+  Object.defineProperty(templateObject, 'toString', {
+    enumerable: false,
+    value: () => templateName
+  });
   const html = await liquid.parseAndRender(expandedGroups, {
     content_for_header: '<meta name="robots" content="noindex">',
     content_for_layout: contentForLayout,
@@ -598,7 +680,7 @@ export async function renderShopifyThemePreview(
     },
     settings,
     localization: { language: { iso_code: 'pt-BR' }, country: { iso_code: 'BR' } },
-    template: { name: template.replace(/^templates\//, '').replace(/\.(json|liquid)$/i, '') },
+    template: templateObject,
     page_title: 'Cartify',
     page_description: '',
     current_tags: [],
