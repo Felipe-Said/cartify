@@ -44,14 +44,23 @@ type EditorSection = {
   type: string;
   disabled?: boolean;
   settings: Record<string, any>;
-  blocks: Array<{ id: string; type: string; disabled?: boolean; settings: Record<string, any> }>;
+  blocks: Array<{
+    id: string;
+    type: string;
+    disabled?: boolean;
+    settings: Record<string, any>;
+  }>;
   blockOrder: string[];
   schema: ThemeSchema;
 };
 
 type EditorData = {
   template: string;
-  templateData: { sections?: Record<string, any>; order?: string[]; [key: string]: any };
+  templateData: {
+    sections?: Record<string, any>;
+    order?: string[];
+    [key: string]: any;
+  };
   global: { settings: Record<string, any>; schema: ThemeSchema[] };
   sections: EditorSection[];
   availableSections: Array<{
@@ -81,7 +90,9 @@ interface ThemeEditorProps {
 
 function humanize(value?: string) {
   if (!value) return 'Configuração';
-  const source = value.startsWith('t:') ? value.split('.').pop() || value : value;
+  const source = value.startsWith('t:')
+    ? value.split('.').pop() || value
+    : value;
   return source
     .replace(/([a-z])([A-Z])/g, '$1 $2')
     .replace(/[_-]+/g, ' ')
@@ -90,7 +101,9 @@ function humanize(value?: string) {
 
 function fileLabel(file: string) {
   const clean = file.replace(/^templates\//, '');
-  return clean === 'index.json' || clean === 'index.liquid' ? 'Página inicial' : humanize(clean.replace(/\.(json|liquid)$/i, ''));
+  return clean === 'index.json' || clean === 'index.liquid'
+    ? 'Página inicial'
+    : humanize(clean.replace(/\.(json|liquid)$/i, ''));
 }
 
 function sortTemplates(templates: string[]) {
@@ -129,7 +142,13 @@ function Sidebar({
 }) {
   return (
     <aside className="theme-editor-sidebar">
-      <button type="button" className={`theme-editor-sidebar__item theme-editor-sidebar__item--page${selected === 'global' ? ' is-selected' : ''}`} onClick={() => onSelect('global')}>
+      <button
+        type="button"
+        className={`theme-editor-sidebar__item theme-editor-sidebar__item--page${
+          selected === 'global' ? ' is-selected' : ''
+        }`}
+        onClick={() => onSelect('global')}
+      >
         <Settings size={16} />
         <span>Configurações do tema</span>
       </button>
@@ -138,22 +157,56 @@ function Sidebar({
         <h3>Seções da página</h3>
         {data.sections.map((section) => (
           <div className="theme-editor-sidebar__section" key={section.id}>
-            <button type="button" className={`theme-editor-sidebar__item${selected === `section:${section.id}` ? ' is-selected' : ''}`} onClick={() => onSelect(`section:${section.id}`)}>
+            <button
+              type="button"
+              className={`theme-editor-sidebar__item${
+                selected === `section:${section.id}` ? ' is-selected' : ''
+              }`}
+              onClick={() => onSelect(`section:${section.id}`)}
+            >
               <ChevronRight size={14} />
               <span>{sectionName(section)}</span>
-              <span className="theme-editor-sidebar__visibility" role="button" tabIndex={0} onClick={(event) => { event.stopPropagation(); onToggle(section.id); }} onKeyDown={(event) => { if (event.key === 'Enter') onToggle(section.id); }}>
+              <span
+                className="theme-editor-sidebar__visibility"
+                role="button"
+                tabIndex={0}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onToggle(section.id);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter') onToggle(section.id);
+                }}
+              >
                 {section.disabled ? <EyeOff size={14} /> : <Eye size={14} />}
               </span>
             </button>
             {section.blocks.map((block) => (
-              <button type="button" className={`theme-editor-sidebar__block-item${selected === `block:${section.id}:${block.id}` ? ' is-selected' : ''}`} key={block.id} onClick={() => onSelect(`block:${section.id}:${block.id}`)}>
+              <button
+                type="button"
+                className={`theme-editor-sidebar__block-item${
+                  selected === `block:${section.id}:${block.id}`
+                    ? ' is-selected'
+                    : ''
+                }`}
+                key={block.id}
+                onClick={() => onSelect(`block:${section.id}:${block.id}`)}
+              >
                 <ChevronRight size={13} />
-                {humanize(section.schema.blocks?.find((item) => item.type === block.type)?.name || block.type)}
+                {humanize(
+                  section.schema.blocks?.find(
+                    (item) => item.type === block.type
+                  )?.name || block.type
+                )}
               </button>
             ))}
           </div>
         ))}
-        <button type="button" className="theme-editor-add-section" onClick={onAdd}>
+        <button
+          type="button"
+          className="theme-editor-add-section"
+          onClick={onAdd}
+        >
           <Plus size={16} /> Adicionar seção
         </button>
       </div>
@@ -175,7 +228,8 @@ function MediaField({
   const input = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const isVideo = field.type === 'video' || field.type === 'video_url';
-  const displayValue = typeof value === 'string' ? value.split('/').pop() : value?.alt || '';
+  const displayValue =
+    typeof value === 'string' ? value.split('/').pop() : value?.alt || '';
 
   async function upload(file?: File) {
     if (!file) return;
@@ -185,10 +239,25 @@ function MediaField({
       body.append('media', file);
       const response = await fetch(mediaUploadApi, { method: 'POST', body });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload?.error?.message || 'Não foi possível enviar o arquivo.');
-      onChange(isVideo ? { url: payload.data.path, alt: file.name, preview_image: { src: payload.data.path } } : payload.data.path);
+      if (!response.ok)
+        throw new Error(
+          payload?.error?.message || 'Não foi possível enviar o arquivo.'
+        );
+      onChange(
+        isVideo
+          ? {
+              url: payload.data.path,
+              alt: file.name,
+              preview_image: { src: payload.data.path }
+            }
+          : payload.data.path
+      );
     } catch (error) {
-      window.alert(error instanceof Error ? error.message : 'Não foi possível enviar o arquivo.');
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível enviar o arquivo.'
+      );
     } finally {
       setUploading(false);
     }
@@ -196,44 +265,197 @@ function MediaField({
 
   return (
     <div className="theme-editor-media-field">
-      <input ref={input} hidden type="file" accept={isVideo ? 'video/*' : 'image/*'} onChange={(event) => upload(event.target.files?.[0])} />
-      <button type="button" className="theme-editor-media-picker" onClick={() => input.current?.click()} disabled={uploading}>
+      <input
+        ref={input}
+        hidden
+        type="file"
+        accept={isVideo ? 'video/*' : 'image/*'}
+        onChange={(event) => upload(event.target.files?.[0])}
+      />
+      <button
+        type="button"
+        className="theme-editor-media-picker"
+        onClick={() => input.current?.click()}
+        disabled={uploading}
+      >
         <Upload size={16} />
-        <span>{uploading ? 'Enviando...' : displayValue || (isVideo ? 'Selecionar vídeo' : 'Selecionar imagem')}</span>
+        <span>
+          {uploading
+            ? 'Enviando...'
+            : displayValue ||
+              (isVideo ? 'Selecionar vídeo' : 'Selecionar imagem')}
+        </span>
       </button>
-      {value && <button type="button" className="theme-editor-clear-media" onClick={() => onChange('')}>Remover</button>}
+      {value && (
+        <button
+          type="button"
+          className="theme-editor-clear-media"
+          onClick={() => onChange('')}
+        >
+          Remover
+        </button>
+      )}
     </div>
   );
 }
 
-function Field({ field, value, onChange, mediaUploadApi }: { field: ThemeSetting; value: any; onChange: (value: any) => void; mediaUploadApi: string }) {
-  if (field.type === 'header') return <h4 className="theme-editor-field-header">{humanize(field.content)}</h4>;
-  if (field.type === 'paragraph') return <p className="theme-editor-field-help">{humanize(field.content)}</p>;
+function Field({
+  field,
+  value,
+  onChange,
+  mediaUploadApi
+}: {
+  field: ThemeSetting;
+  value: any;
+  onChange: (value: any) => void;
+  mediaUploadApi: string;
+}) {
+  if (field.type === 'header')
+    return (
+      <h4 className="theme-editor-field-header">{humanize(field.content)}</h4>
+    );
+  if (field.type === 'paragraph')
+    return <p className="theme-editor-field-help">{humanize(field.content)}</p>;
   if (!field.id) return null;
   const label = humanize(field.label || field.id);
   const type = field.type || 'text';
-  const common = <><span>{label}</span>{field.info && <small>{humanize(field.info)}</small>}</>;
+  const common = (
+    <>
+      <span>{label}</span>
+      {field.info && <small>{humanize(field.info)}</small>}
+    </>
+  );
 
   if (type === 'checkbox') {
-    return <label className="theme-editor-toggle">{common}<input type="checkbox" checked={Boolean(value)} onChange={(event) => onChange(event.target.checked)} /><i /></label>;
+    return (
+      <label className="theme-editor-toggle">
+        {common}
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(event) => onChange(event.target.checked)}
+        />
+        <i />
+      </label>
+    );
   }
   if (type === 'image_picker' || type === 'video' || type === 'video_url') {
-    return <label className="theme-editor-field">{common}<MediaField field={field} value={value} mediaUploadApi={mediaUploadApi} onChange={onChange} /></label>;
+    return (
+      <label className="theme-editor-field">
+        {common}
+        <MediaField
+          field={field}
+          value={value}
+          mediaUploadApi={mediaUploadApi}
+          onChange={onChange}
+        />
+      </label>
+    );
   }
   if (type === 'color' || type === 'color_background') {
-    return <label className="theme-editor-field">{common}<span className="theme-editor-color"><input type="color" value={typeof value === 'string' && value.startsWith('#') ? value : '#000000'} onChange={(event) => onChange(event.target.value)} /><input value={typeof value === 'string' ? value : ''} onChange={(event) => onChange(event.target.value)} placeholder="#000000" /></span></label>;
+    return (
+      <label className="theme-editor-field">
+        {common}
+        <span className="theme-editor-color">
+          <input
+            type="color"
+            value={
+              typeof value === 'string' && value.startsWith('#')
+                ? value
+                : '#000000'
+            }
+            onChange={(event) => onChange(event.target.value)}
+          />
+          <input
+            value={typeof value === 'string' ? value : ''}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder="#000000"
+          />
+        </span>
+      </label>
+    );
   }
   if (type === 'range' || type === 'number') {
-    return <label className="theme-editor-field">{common}<span className="theme-editor-range"><input type="range" min={field.min} max={field.max} step={field.step || 1} value={Number(value ?? field.default ?? field.min ?? 0)} onChange={(event) => onChange(Number(event.target.value))} /><output>{value ?? field.default ?? field.min ?? 0}{field.unit || ''}</output></span></label>;
+    return (
+      <label className="theme-editor-field">
+        {common}
+        <span className="theme-editor-range">
+          <input
+            type="range"
+            min={field.min}
+            max={field.max}
+            step={field.step || 1}
+            value={Number(value ?? field.default ?? field.min ?? 0)}
+            onChange={(event) => onChange(Number(event.target.value))}
+          />
+          <output>
+            {value ?? field.default ?? field.min ?? 0}
+            {field.unit || ''}
+          </output>
+        </span>
+      </label>
+    );
   }
-  if (type === 'select' || type === 'radio' || type === 'text_alignment' || type === 'color_scheme') {
-    const options = type === 'text_alignment' ? [{ value: 'left', label: 'Esquerda' }, { value: 'center', label: 'Centro' }, { value: 'right', label: 'Direita' }] : field.options || [];
-    return <label className="theme-editor-field">{common}<select value={value ?? field.default ?? ''} onChange={(event) => onChange(event.target.value)}><option value="">Selecionar</option>{options.map((option) => <option key={option.value} value={option.value}>{humanize(option.label || option.value)}</option>)}</select></label>;
+  if (
+    type === 'select' ||
+    type === 'radio' ||
+    type === 'text_alignment' ||
+    type === 'color_scheme'
+  ) {
+    const options =
+      type === 'text_alignment'
+        ? [
+            { value: 'left', label: 'Esquerda' },
+            { value: 'center', label: 'Centro' },
+            { value: 'right', label: 'Direita' }
+          ]
+        : field.options || [];
+    return (
+      <label className="theme-editor-field">
+        {common}
+        <select
+          value={value ?? field.default ?? ''}
+          onChange={(event) => onChange(event.target.value)}
+        >
+          <option value="">Selecionar</option>
+          {options.map((option) => (
+            <option key={option.value} value={option.value}>
+              {humanize(option.label || option.value)}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
   }
-  if (type === 'textarea' || type === 'richtext' || type === 'inline_richtext' || type === 'liquid') {
-    return <label className="theme-editor-field">{common}<textarea value={value ?? field.default ?? ''} onChange={(event) => onChange(event.target.value)} rows={type === 'richtext' ? 5 : 3} /></label>;
+  if (
+    type === 'textarea' ||
+    type === 'richtext' ||
+    type === 'inline_richtext' ||
+    type === 'liquid'
+  ) {
+    return (
+      <label className="theme-editor-field">
+        {common}
+        <textarea
+          value={value ?? field.default ?? ''}
+          onChange={(event) => onChange(event.target.value)}
+          rows={type === 'richtext' ? 5 : 3}
+        />
+      </label>
+    );
   }
-  return <label className="theme-editor-field">{common}<input type={type === 'url' ? 'url' : 'text'} value={typeof value === 'string' ? value : value?.url || field.default || ''} onChange={(event) => onChange(event.target.value)} /></label>;
+  return (
+    <label className="theme-editor-field">
+      {common}
+      <input
+        type={type === 'url' ? 'url' : 'text'}
+        value={
+          typeof value === 'string' ? value : value?.url || field.default || ''
+        }
+        onChange={(event) => onChange(event.target.value)}
+      />
+    </label>
+  );
 }
 
 function Inspector({
@@ -253,7 +475,12 @@ function Inspector({
   mediaUploadApi: string;
   onGlobalChange: (id: string, value: any) => void;
   onSectionChange: (sectionId: string, id: string, value: any) => void;
-  onBlockChange: (sectionId: string, blockId: string, id: string, value: any) => void;
+  onBlockChange: (
+    sectionId: string,
+    blockId: string,
+    id: string,
+    value: any
+  ) => void;
   onBack: () => void;
   onAddBlock: (sectionId: string, type: string) => void;
   onRemoveSection: (sectionId: string) => void;
@@ -310,10 +537,21 @@ function Inspector({
   const [kind, sectionId, blockId] = selected.split(':');
   const section = data.sections.find((item) => item.id === sectionId);
   if (!section) return null;
-  const block = kind === 'block' ? section.blocks.find((item) => item.id === blockId) : null;
-  const fields = block ? section.schema.blocks?.find((item) => item.type === block.type)?.settings || [] : section.schema.settings || [];
+  const block =
+    kind === 'block'
+      ? section.blocks.find((item) => item.id === blockId)
+      : null;
+  const fields = block
+    ? section.schema.blocks?.find((item) => item.type === block.type)
+        ?.settings || []
+    : section.schema.settings || [];
   const values = block ? block.settings : section.settings;
-  const title = block ? humanize(section.schema.blocks?.find((item) => item.type === block.type)?.name || block.type) : sectionName(section);
+  const title = block
+    ? humanize(
+        section.schema.blocks?.find((item) => item.type === block.type)?.name ||
+          block.type
+      )
+    : sectionName(section);
   const availableBlocks = (section.schema.blocks || []).filter(
     (item) => item.type && item.type !== '@app'
   );
@@ -385,19 +623,137 @@ function Inspector({
   );
 }
 
-function AddSectionModal({ sections, onAdd, onClose }: { sections: EditorData['availableSections']; onAdd: (type: string) => void; onClose: () => void }) {
-  return <div className="theme-editor-modal" role="dialog" aria-modal="true"><button type="button" className="theme-editor-modal__backdrop" onClick={onClose} /><section className="theme-editor-modal__panel"><div><h2>Adicionar seção</h2><button type="button" className="theme-editor-icon-button" onClick={onClose}><X size={18} /></button></div><p>Escolha uma seção que o tema disponibiliza para a página.</p><div className="theme-editor-add-list">{sections.map((section) => <button type="button" key={section.type} onClick={() => onAdd(section.type)}><span>{humanize(section.name || section.type)}</span><ChevronRight size={17} /></button>)}</div></section></div>;
+function AddSectionModal({
+  sections,
+  onAdd,
+  onClose
+}: {
+  sections: EditorData['availableSections'];
+  onAdd: (type: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="theme-editor-modal" role="dialog" aria-modal="true">
+      <button
+        type="button"
+        className="theme-editor-modal__backdrop"
+        onClick={onClose}
+      />
+      <section className="theme-editor-modal__panel">
+        <div>
+          <h2>Adicionar seção</h2>
+          <button
+            type="button"
+            className="theme-editor-icon-button"
+            onClick={onClose}
+          >
+            <X size={18} />
+          </button>
+        </div>
+        <p>Escolha uma seção que o tema disponibiliza para a página.</p>
+        <div className="theme-editor-add-list">
+          {sections.map((section) => (
+            <button
+              type="button"
+              key={section.type}
+              onClick={() => onAdd(section.type)}
+            >
+              <span>{humanize(section.name || section.type)}</span>
+              <ChevronRight size={17} />
+            </button>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 }
 
-function Preview({ theme, template, device, refreshKey }: { theme: StoreTheme; template: string; device: 'desktop' | 'mobile'; refreshKey: number }) {
+function Preview({
+  theme,
+  template,
+  data,
+  device,
+  refreshKey
+}: {
+  theme: StoreTheme;
+  template: string;
+  data: EditorData;
+  device: 'desktop' | 'mobile';
+  refreshKey: number;
+}) {
   const separator = theme.previewUrl.includes('?') ? '&' : '?';
-  const url = `${theme.previewUrl}${separator}template=${encodeURIComponent(template)}&preview=${refreshKey}`;
-  return <div className={`theme-editor-preview theme-editor-preview--${device}`}><div className="theme-editor-device-frame"><iframe title="Visualização da loja" src={url} /></div></div>;
+  const url = `${theme.previewUrl}${separator}template=${encodeURIComponent(
+    template
+  )}&preview=${refreshKey}`;
+  const [html, setHtml] = useState<string>();
+  const [previewError, setPreviewError] = useState('');
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch(theme.previewUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template,
+          templateData: data.templateData,
+          globalSettings: data.global.settings
+        }),
+        signal: controller.signal
+      })
+        .then(async (response) => {
+          const content = await response.text();
+          if (!response.ok) {
+            throw new Error('Não foi possível atualizar a visualização.');
+          }
+          setHtml(content);
+          setPreviewError('');
+        })
+        .catch((error) => {
+          if (error.name !== 'AbortError') setPreviewError(error.message);
+        });
+    }, 250);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [
+    theme.previewUrl,
+    template,
+    data.templateData,
+    data.global.settings,
+    refreshKey
+  ]);
+  return (
+    <div className={`theme-editor-preview theme-editor-preview--${device}`}>
+      <div className="theme-editor-device-frame">
+        {previewError && (
+          <div className="theme-editor-preview__error">{previewError}</div>
+        )}
+        <iframe
+          title="Visualização da loja"
+          src={html === undefined ? url : undefined}
+          srcDoc={html}
+        />
+      </div>
+    </div>
+  );
 }
 
-export default function ThemeEditor({ theme, onlineStoreUrl }: ThemeEditorProps) {
-  const templates = useMemo(() => sortTemplates((theme?.templates || []).filter((item) => item.endsWith('.json'))), [theme?.templates]);
-  const [template, setTemplate] = useState(templates[0] || 'templates/index.json');
+export default function ThemeEditor({
+  theme,
+  onlineStoreUrl
+}: ThemeEditorProps) {
+  const templates = useMemo(
+    () =>
+      sortTemplates(
+        (theme?.templates || []).filter((item) => item.endsWith('.json'))
+      ),
+    [theme?.templates]
+  );
+  const [template, setTemplate] = useState(
+    templates[0] || 'templates/index.json'
+  );
   const [data, setData] = useState<EditorData | null>(null);
   const [selected, setSelected] = useState('navigation');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -418,33 +774,340 @@ export default function ThemeEditor({ theme, onlineStoreUrl }: ThemeEditorProps)
     setData(null);
     setDirty(false);
     setSelected('navigation');
-    fetch(`${theme.editorApi}?template=${encodeURIComponent(template)}`, { signal: controller.signal })
+    fetch(`${theme.editorApi}?template=${encodeURIComponent(template)}`, {
+      signal: controller.signal
+    })
       .then(async (response) => {
         const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.error?.message || 'Não foi possível carregar o tema.');
+        if (!response.ok)
+          throw new Error(
+            payload?.error?.message || 'Não foi possível carregar o tema.'
+          );
         setData(payload.data);
       })
-      .catch((error) => { if (error.name !== 'AbortError') window.alert(error.message); });
+      .catch((error) => {
+        if (error.name !== 'AbortError') window.alert(error.message);
+      });
     return () => controller.abort();
   }, [theme, template]);
 
-  if (!theme) return <div className="theme-editor-page"><div className="theme-editor-topbar"><a href={onlineStoreUrl} className="theme-editor-icon-button"><Undo2 size={18} /></a><strong>Tema não encontrado</strong></div></div>;
-  if (theme.engine !== 'shopify_liquid') return <div className="theme-editor-page"><div className="theme-editor-topbar"><a href={onlineStoreUrl} className="theme-editor-icon-button"><Undo2 size={18} /></a><strong>Este editor visual está disponível para temas Shopify importados.</strong></div></div>;
+  if (!theme)
+    return (
+      <div className="theme-editor-page">
+        <div className="theme-editor-topbar">
+          <a href={onlineStoreUrl} className="theme-editor-icon-button">
+            <Undo2 size={18} />
+          </a>
+          <strong>Tema não encontrado</strong>
+        </div>
+      </div>
+    );
+  if (theme.engine !== 'shopify_liquid')
+    return (
+      <div className="theme-editor-page">
+        <div className="theme-editor-topbar">
+          <a href={onlineStoreUrl} className="theme-editor-icon-button">
+            <Undo2 size={18} />
+          </a>
+          <strong>
+            Este editor visual está disponível para temas Shopify importados.
+          </strong>
+        </div>
+      </div>
+    );
 
   function update(mutator: (current: EditorData) => void) {
-    setData((current) => { if (!current) return current; const next = clone(current); mutator(next); return next; });
+    setData((current) => {
+      if (!current) return current;
+      const next = clone(current);
+      mutator(next);
+      return next;
+    });
     setDirty(true);
   }
-  function updateSection(sectionId: string, id: string, value: any) { update((current) => { current.templateData.sections![sectionId].settings ||= {}; current.templateData.sections![sectionId].settings[id] = value; const section = current.sections.find((item) => item.id === sectionId); if (section) section.settings[id] = value; }); }
-  function updateBlock(sectionId: string, blockId: string, id: string, value: any) { update((current) => { current.templateData.sections![sectionId].blocks[blockId].settings ||= {}; current.templateData.sections![sectionId].blocks[blockId].settings[id] = value; const block = current.sections.find((item) => item.id === sectionId)?.blocks.find((item) => item.id === blockId); if (block) block.settings[id] = value; }); }
-  function toggleSection(sectionId: string) { update((current) => { const item = current.templateData.sections![sectionId]; item.disabled = !item.disabled; const section = current.sections.find((value) => value.id === sectionId); if (section) section.disabled = item.disabled; }); }
-  function addSection(type: string) { update((current) => { const id = `${type}_${Math.random().toString(36).slice(2, 8)}`; const source = current.availableSections.find((item) => item.type === type); const settings = Object.fromEntries((source?.settings || []).filter((field) => field.id).map((field) => [field.id!, field.default ?? ''])); current.templateData.sections ||= {}; current.templateData.order ||= []; current.templateData.sections[id] = { type, settings }; current.templateData.order.push(id); current.sections.push({ id, type, settings, blocks: [], blockOrder: [], schema: { name: source?.name || type, settings: source?.settings || [], blocks: source?.blocks || [] } }); setSelected(`section:${id}`); }); setAddOpen(false); }
-  function addBlock(sectionId: string, type: string) { update((current) => { const section = current.sections.find((item) => item.id === sectionId); const definition = section?.schema.blocks?.find((item) => item.type === type); if (!section || !definition) return; const id = `${type}_${Math.random().toString(36).slice(2, 8)}`; const settings = Object.fromEntries((definition.settings || []).filter((field) => field.id).map((field) => [field.id!, field.default ?? ''])); const templateSection = current.templateData.sections![sectionId]; templateSection.blocks ||= {}; templateSection.block_order ||= []; templateSection.blocks[id] = { type, settings }; templateSection.block_order.push(id); section.blocks.push({ id, type, settings }); section.blockOrder.push(id); setSelected(`block:${sectionId}:${id}`); }); }
-  function removeSection(sectionId: string) { update((current) => { delete current.templateData.sections![sectionId]; current.templateData.order = (current.templateData.order || []).filter((id) => id !== sectionId); current.sections = current.sections.filter((item) => item.id !== sectionId); }); setSelected('navigation'); }
-  function removeBlock(sectionId: string, blockId: string) { update((current) => { const templateSection = current.templateData.sections![sectionId]; delete templateSection.blocks?.[blockId]; templateSection.block_order = (templateSection.block_order || []).filter((id: string) => id !== blockId); const section = current.sections.find((item) => item.id === sectionId); if (section) { section.blocks = section.blocks.filter((item) => item.id !== blockId); section.blockOrder = section.blockOrder.filter((id) => id !== blockId); } }); setSelected(`section:${sectionId}`); }
-  async function save() { if (!data || saving) return; setSaving(true); try { const response = await fetch(theme.editorApi, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ template: data.template, templateData: data.templateData, globalSettings: data.global.settings }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload?.error?.message || 'Não foi possível salvar o tema.'); setDirty(false); setRefreshKey((value) => value + 1); } catch (error) { window.alert(error instanceof Error ? error.message : 'Não foi possível salvar o tema.'); } finally { setSaving(false); } }
+  function updateSection(sectionId: string, id: string, value: any) {
+    update((current) => {
+      current.templateData.sections![sectionId].settings ||= {};
+      current.templateData.sections![sectionId].settings[id] = value;
+      const section = current.sections.find((item) => item.id === sectionId);
+      if (section) section.settings[id] = value;
+    });
+  }
+  function updateBlock(
+    sectionId: string,
+    blockId: string,
+    id: string,
+    value: any
+  ) {
+    update((current) => {
+      current.templateData.sections![sectionId].blocks[blockId].settings ||= {};
+      current.templateData.sections![sectionId].blocks[blockId].settings[id] =
+        value;
+      const block = current.sections
+        .find((item) => item.id === sectionId)
+        ?.blocks.find((item) => item.id === blockId);
+      if (block) block.settings[id] = value;
+    });
+  }
+  function toggleSection(sectionId: string) {
+    update((current) => {
+      const item = current.templateData.sections![sectionId];
+      item.disabled = !item.disabled;
+      const section = current.sections.find((value) => value.id === sectionId);
+      if (section) section.disabled = item.disabled;
+    });
+  }
+  function addSection(type: string) {
+    update((current) => {
+      const id = `${type}_${Math.random().toString(36).slice(2, 8)}`;
+      const source = current.availableSections.find(
+        (item) => item.type === type
+      );
+      const settings = Object.fromEntries(
+        (source?.settings || [])
+          .filter((field) => field.id)
+          .map((field) => [field.id!, field.default ?? ''])
+      );
+      current.templateData.sections ||= {};
+      current.templateData.order ||= [];
+      current.templateData.sections[id] = { type, settings };
+      current.templateData.order.push(id);
+      current.sections.push({
+        id,
+        type,
+        settings,
+        blocks: [],
+        blockOrder: [],
+        schema: {
+          name: source?.name || type,
+          settings: source?.settings || [],
+          blocks: source?.blocks || []
+        }
+      });
+      setSelected(`section:${id}`);
+    });
+    setAddOpen(false);
+  }
+  function addBlock(sectionId: string, type: string) {
+    update((current) => {
+      const section = current.sections.find((item) => item.id === sectionId);
+      const definition = section?.schema.blocks?.find(
+        (item) => item.type === type
+      );
+      if (!section || !definition) return;
+      const id = `${type}_${Math.random().toString(36).slice(2, 8)}`;
+      const settings = Object.fromEntries(
+        (definition.settings || [])
+          .filter((field) => field.id)
+          .map((field) => [field.id!, field.default ?? ''])
+      );
+      const templateSection = current.templateData.sections![sectionId];
+      templateSection.blocks ||= {};
+      templateSection.block_order ||= [];
+      templateSection.blocks[id] = { type, settings };
+      templateSection.block_order.push(id);
+      section.blocks.push({ id, type, settings });
+      section.blockOrder.push(id);
+      setSelected(`block:${sectionId}:${id}`);
+    });
+  }
+  function removeSection(sectionId: string) {
+    update((current) => {
+      delete current.templateData.sections![sectionId];
+      current.templateData.order = (current.templateData.order || []).filter(
+        (id) => id !== sectionId
+      );
+      current.sections = current.sections.filter(
+        (item) => item.id !== sectionId
+      );
+    });
+    setSelected('navigation');
+  }
+  function removeBlock(sectionId: string, blockId: string) {
+    update((current) => {
+      const templateSection = current.templateData.sections![sectionId];
+      delete templateSection.blocks?.[blockId];
+      templateSection.block_order = (templateSection.block_order || []).filter(
+        (id: string) => id !== blockId
+      );
+      const section = current.sections.find((item) => item.id === sectionId);
+      if (section) {
+        section.blocks = section.blocks.filter((item) => item.id !== blockId);
+        section.blockOrder = section.blockOrder.filter((id) => id !== blockId);
+      }
+    });
+    setSelected(`section:${sectionId}`);
+  }
+  async function save() {
+    if (!data || saving) return;
+    setSaving(true);
+    try {
+      const response = await fetch(theme!.editorApi, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template: data.template,
+          templateData: data.templateData,
+          globalSettings: data.global.settings
+        })
+      });
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(
+          payload?.error?.message || 'Não foi possível salvar o tema.'
+        );
+      setDirty(false);
+      setRefreshKey((value) => value + 1);
+    } catch (error) {
+      window.alert(
+        error instanceof Error
+          ? error.message
+          : 'Não foi possível salvar o tema.'
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
 
-  return <div className="theme-editor-page"><div className="theme-editor-topbar"><div className="theme-editor-left-actions"><a href={onlineStoreUrl} className="theme-editor-icon-button" title="Voltar"><Undo2 size={18} /></a><button type="button" className={`theme-editor-icon-button${sidebarOpen ? ' active' : ''}`} onClick={() => setSidebarOpen((value) => !value)} title="Seções"><PanelLeft size={18} /></button></div><div className="theme-editor-title"><span>{theme.label}</span><span className="status-pill status-pill--active">{theme.status === 'ready' ? 'Ativo' : 'Rascunho'}</span><span className="theme-editor-template"><Home size={16} /><select value={template} onChange={(event) => setTemplate(event.target.value)}>{templates.map((item) => <option key={item} value={item}>{fileLabel(item)}</option>)}</select></span></div><div className="theme-editor-actions"><button type="button" className={`theme-editor-icon-button${device === 'desktop' ? ' active' : ''}`} onClick={() => setDevice('desktop')} title="Desktop"><Monitor size={17} /></button><button type="button" className={`theme-editor-icon-button${device === 'mobile' ? ' active' : ''}`} onClick={() => setDevice('mobile')} title="Celular"><Smartphone size={17} /></button><button type="button" className="theme-editor-icon-button" disabled={!dirty} onClick={() => window.location.reload()} title="Descartar alterações"><Undo2 size={17} /></button><button type="button" className="button button--primary" disabled={!dirty || saving} onClick={save}><Save size={16} />{saving ? 'Salvando...' : 'Salvar'}</button></div></div><div className={`theme-editor-shell${sidebarOpen ? '' : ' theme-editor-shell--sidebar-closed'}`}>{data ? <>{sidebarOpen && (selected === 'navigation' ? <Sidebar data={data} selected={selected} onSelect={setSelected} onToggle={toggleSection} onAdd={() => setAddOpen(true)} /> : <Inspector data={data} selected={selected} mediaUploadApi={theme.mediaUploadApi} onBack={() => setSelected('navigation')} onGlobalChange={(id, value) => update((current) => { current.global.settings[id] = value; })} onSectionChange={updateSection} onBlockChange={updateBlock} onAddBlock={addBlock} onRemoveSection={removeSection} onRemoveBlock={removeBlock} />)}<Preview theme={theme} template={template} device={device} refreshKey={refreshKey} /></> : <div className="theme-editor-loading">Carregando as opções do tema…</div>}</div>{addOpen && data && <AddSectionModal sections={data.availableSections} onAdd={addSection} onClose={() => setAddOpen(false)} />}</div>;
+  return (
+    <div className="theme-editor-page">
+      <div className="theme-editor-topbar">
+        <div className="theme-editor-left-actions">
+          <a
+            href={onlineStoreUrl}
+            className="theme-editor-icon-button"
+            title="Voltar"
+          >
+            <Undo2 size={18} />
+          </a>
+          <button
+            type="button"
+            className={`theme-editor-icon-button${
+              sidebarOpen ? ' active' : ''
+            }`}
+            onClick={() => setSidebarOpen((value) => !value)}
+            title="Seções"
+          >
+            <PanelLeft size={18} />
+          </button>
+        </div>
+        <div className="theme-editor-title">
+          <span>{theme.label}</span>
+          <span className="status-pill status-pill--active">
+            {theme.status === 'ready' ? 'Ativo' : 'Rascunho'}
+          </span>
+          <span className="theme-editor-template">
+            <Home size={16} />
+            <select
+              value={template}
+              onChange={(event) => setTemplate(event.target.value)}
+            >
+              {templates.map((item) => (
+                <option key={item} value={item}>
+                  {fileLabel(item)}
+                </option>
+              ))}
+            </select>
+          </span>
+        </div>
+        <div className="theme-editor-actions">
+          <button
+            type="button"
+            className={`theme-editor-icon-button${
+              device === 'desktop' ? ' active' : ''
+            }`}
+            onClick={() => setDevice('desktop')}
+            title="Desktop"
+          >
+            <Monitor size={17} />
+          </button>
+          <button
+            type="button"
+            className={`theme-editor-icon-button${
+              device === 'mobile' ? ' active' : ''
+            }`}
+            onClick={() => setDevice('mobile')}
+            title="Celular"
+          >
+            <Smartphone size={17} />
+          </button>
+          <button
+            type="button"
+            className="theme-editor-icon-button"
+            disabled={!dirty}
+            onClick={() => window.location.reload()}
+            title="Descartar alterações"
+          >
+            <Undo2 size={17} />
+          </button>
+          <button
+            type="button"
+            className="button button--primary"
+            disabled={!dirty || saving}
+            onClick={save}
+          >
+            <Save size={16} />
+            {saving ? 'Salvando...' : 'Salvar'}
+          </button>
+        </div>
+      </div>
+      <div
+        className={`theme-editor-shell${
+          sidebarOpen ? '' : ' theme-editor-shell--sidebar-closed'
+        }`}
+      >
+        {data ? (
+          <>
+            {sidebarOpen &&
+              (selected === 'navigation' ? (
+                <Sidebar
+                  data={data}
+                  selected={selected}
+                  onSelect={setSelected}
+                  onToggle={toggleSection}
+                  onAdd={() => setAddOpen(true)}
+                />
+              ) : (
+                <Inspector
+                  data={data}
+                  selected={selected}
+                  mediaUploadApi={theme.mediaUploadApi}
+                  onBack={() => setSelected('navigation')}
+                  onGlobalChange={(id, value) =>
+                    update((current) => {
+                      current.global.settings[id] = value;
+                    })
+                  }
+                  onSectionChange={updateSection}
+                  onBlockChange={updateBlock}
+                  onAddBlock={addBlock}
+                  onRemoveSection={removeSection}
+                  onRemoveBlock={removeBlock}
+                />
+              ))}
+            <Preview
+              theme={theme}
+              template={template}
+              data={data}
+              device={device}
+              refreshKey={refreshKey}
+            />
+          </>
+        ) : (
+          <div className="theme-editor-loading">
+            Carregando as opções do tema…
+          </div>
+        )}
+      </div>
+      {addOpen && data && (
+        <AddSectionModal
+          sections={data.availableSections}
+          onAdd={addSection}
+          onClose={() => setAddOpen(false)}
+        />
+      )}
+    </div>
+  );
 }
 
 export const layout = { areaId: 'content', sortOrder: 10 };

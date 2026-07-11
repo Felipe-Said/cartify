@@ -7,11 +7,23 @@ export default async (
   response: CartifyResponse
 ) => {
   try {
-    const html = await renderShopifyThemePreview(request.params.theme, {
+    const body = (request.body || {}) as {
+      template?: string;
+      templateData?: any;
+      globalSettings?: Record<string, unknown>;
+    };
+    const themeName = Array.isArray(request.params.theme)
+      ? request.params.theme[0]
+      : request.params.theme;
+    const html = await renderShopifyThemePreview(themeName, {
       template:
-        typeof request.query.template === 'string'
+        typeof body.template === 'string'
+          ? body.template
+          : typeof request.query.template === 'string'
           ? request.query.template
-          : undefined
+          : undefined,
+      templateData: body.templateData,
+      globalSettings: body.globalSettings
     });
     response.setHeader('Content-Type', 'text/html; charset=utf-8');
     response.setHeader('Cache-Control', 'no-store');

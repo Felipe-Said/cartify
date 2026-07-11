@@ -19,6 +19,8 @@ type ShopifyTemplateJson = {
 
 type RenderPreviewOptions = {
   template?: string;
+  templateData?: ShopifyTemplateJson;
+  globalSettings?: Record<string, unknown>;
 };
 
 async function exists(filePath: string) {
@@ -425,14 +427,17 @@ async function renderIndexContent(
   liquid: Liquid,
   themePath: string,
   settings: any,
-  template = 'index'
+  template = 'index',
+  templateOverride?: ShopifyTemplateJson
 ) {
   const templateName = template
     .replace(/^templates\//, '')
     .replace(/\.(json|liquid)$/i, '');
-  const templateJson = await readJsonIfExists<ShopifyTemplateJson>(
-    path.join(themePath, 'templates', `${templateName}.json`)
-  );
+  const templateJson =
+    templateOverride ||
+    (await readJsonIfExists<ShopifyTemplateJson>(
+      path.join(themePath, 'templates', `${templateName}.json`)
+    ));
   if (templateJson?.sections && templateJson.order) {
     const sections = await Promise.all(
       templateJson.order.map(async (sectionId) => {
@@ -546,6 +551,9 @@ export async function renderShopifyThemePreview(
     themeName,
     manifest.settingsSchema
   );
+  if (options.globalSettings) {
+    Object.assign(settings, normalizeShopifyValue(options.globalSettings));
+  }
   const translations = await loadTranslations(renderPath);
   const liquid = createLiquid(themeName, renderPath, translations);
   await compileLiquidAssets(liquid, renderPath, settings);
@@ -561,7 +569,8 @@ export async function renderShopifyThemePreview(
     liquid,
     renderPath,
     settings,
-    template
+    template,
+    options.templateData
   );
   const expandedLayout = await expandLayoutSections(
     liquid,
