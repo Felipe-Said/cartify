@@ -133,6 +133,20 @@ async function prepareRenderableTheme(themeName: string, themePath: string) {
       await fs.mkdir(path.dirname(targetPath), { recursive: true });
       if (path.extname(file) === '.liquid') {
         const content = await fs.readFile(file, 'utf8');
+        const schemaMatch = content.match(
+          /{%-?\s*schema\s*-?%}([\s\S]*?){%-?\s*endschema\s*-?%}/
+        );
+        if (
+          schemaMatch &&
+          path.dirname(relativePath).replace(/\\/g, '/') === 'sections'
+        ) {
+          try {
+            const schema = parseShopifyJson<any>(schemaMatch[1]);
+            await fs.writeFile(`${targetPath}.schema.json`, JSON.stringify(schema));
+          } catch {
+            // Invalid schema metadata must not prevent the theme preview.
+          }
+        }
         await fs.writeFile(targetPath, withShopifyTags(content));
         return;
       }
@@ -181,15 +195,7 @@ function normalizeShopifyValue(value: any): any {
       return hexToRgb(value) || value;
     }
     if (value.startsWith('shopify://shop_images/')) {
-      const filename = value.split('/').pop() || '';
-      return {
-        src: value,
-        alt: '',
-        width: 1600,
-        height: 900,
-        preview_image: { src: value },
-        url: themeAssetUrl('__THEME__', filename)
-      };
+      return '';
     }
     const fontMatch = value.match(/^(.+)_([ni])(\d)$/);
     if (fontMatch) {
@@ -217,6 +223,59 @@ function normalizeShopifyValue(value: any): any {
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [key, normalizeShopifyValue(item)])
   );
+}
+
+function shopifyResourceUrl(value: string) {
+  const match = value.match(/^shopify:\/\/(products|collections|pages|blogs)\/(.+)$/);
+  if (!match) return value;
+  return `/${match[1]}/${match[2]}`;
+}
+
+function fallbackMenu(handle: string) {
+  const links = [
+    { title: 'Home', url: '/', handle: 'home' },
+    { title: 'Catalog', url: '/collections/all', handle: 'catalog' },
+    { title: 'Contact', url: '/pages/contact', handle: 'contact' }
+  ].map((link) => ({
+    ...link,
+    active: false,
+    child_active: false,
+    current: false,
+    child_current: false,
+    levels: 0,
+    links: []
+  }));
+  return { handle, title: handle, levels: 1, links };
+}
+
+function settingDefinitions(schema: any) {
+  const groups = Array.isArray(schema) ? schema : [];
+  const settings = groups.some((item) => Array.isArray(item?.settings))
+    ? groups.flatMap((item) => item?.settings || [])
+    : groups;
+  return new Map(
+    settings.filter((item) => item?.id).map((item) => [item.id, item])
+  );
+}
+
+function normalizeSettingValue(value: any, definition: any) {
+  const type = definition?.type;
+  if (type === 'image_picker' && typeof value === 'string' && value.startsWith('shopify://')) {
+    return '';
+  }
+  if (
+    ['product', 'collection', 'page', 'blog'].includes(type) &&
+    typeof value === 'string'
+  ) {
+    return null;
+  }
+  if (type === 'link_list' && typeof value === 'string') {
+    return fallbackMenu(value);
+  }
+  if (type === 'url' && typeof value === 'string') {
+    return shopifyResourceUrl(value);
+  }
+  return normalizeShopifyValue(value);
 }
 
 function schemaDefaults(settingsSchema: any) {
@@ -260,10 +319,17 @@ function normalizeSettings(
   themeName: string,
   settingsSchema: any = []
 ) {
-  const current = normalizeShopifyValue({
+  const raw = {
     ...schemaDefaults(settingsSchema),
     ...(settingsData?.current || settingsData || {})
-  });
+  };
+  const definitions = settingDefinitions(settingsSchema);
+  const current = Object.fromEntries(
+    Object.entries(raw).map(([key, value]) => [
+      key,
+      normalizeSettingValue(value, definitions.get(key))
+    ])
+  );
   if (current?.color_schemes && !Array.isArray(current.color_schemes)) {
     current.color_schemes = Object.entries(current.color_schemes).map(
       ([id, scheme]: [string, any]) => ({
@@ -456,6 +522,12 @@ async function renderSectionConfig(
   if (!source) {
     return '';
   }
+  const presentation = await readJsonIfExists<{
+    tag?: string;
+    class?: string;
+    settings?: any[];
+    blocks?: Array<{ type?: string; settings?: any[] }>;
+  }>(`${sectionPath}.schema.json`);
   const blocksById = section.blocks || {};
   const orderedBlocks = (section.block_order || Object.keys(blocksById))
     .map((id) => ({
@@ -467,7 +539,10 @@ async function renderSectionConfig(
       })}'`,
       settings: normalizeSettings(
         { current: (blocksById[id] as any)?.settings || {} },
-        path.basename(themePath)
+        path.basename(themePath),
+        presentation?.blocks?.find(
+          (item) => item.type === (blocksById[id] as any)?.type
+        )?.settings || []
       )
     }))
     .filter((block: any) => !block.disabled);
@@ -477,7 +552,8 @@ async function renderSectionConfig(
     type: section.type,
     settings: normalizeSettings(
       { current: section.settings || {} },
-      path.basename(themePath)
+      path.basename(themePath),
+      presentation?.settings || []
     ),
     blocks: orderedBlocks,
     blocks_by_id: blocksById,
@@ -493,7 +569,15 @@ async function renderSectionConfig(
   const groupClass = groupName
     ? ` shopify-section-group-${groupName.replace(/[^a-zA-Z0-9_-]/g, '-')}`
     : '';
-  return `<div id="shopify-section-${sectionId}" class="shopify-section${groupClass}" data-section-type="${section.type}">${html}</div>`;
+  const allowedTags = new Set(['div', 'section', 'header', 'footer', 'aside']);
+  const wrapperTag =
+    presentation?.tag && allowedTags.has(presentation.tag)
+      ? presentation.tag
+      : 'div';
+  const sectionClass = presentation?.class
+    ? ` ${presentation.class.replace(/[^a-zA-Z0-9 _-]/g, '')}`
+    : '';
+  return `<${wrapperTag} id="shopify-section-${sectionId}" class="shopify-section${groupClass}${sectionClass}" data-section-type="${section.type}">${html}</${wrapperTag}>`;
 }
 
 async function renderIndexContent(
@@ -609,6 +693,80 @@ async function expandSectionGroups(
   return expanded;
 }
 
+function createRuntimeContext(template: string, settings: any) {
+  const templateName = template
+    .replace(/^templates\//, '')
+    .replace(/\.(json|liquid)$/i, '');
+  const templateObject = { name: templateName };
+  Object.defineProperty(templateObject, 'toString', {
+    enumerable: false,
+    value: () => templateName
+  });
+  return {
+    canonical_url: '/',
+    request: {
+      path: '/',
+      page_type: 'index',
+      design_mode: true,
+      locale: { iso_code: 'pt-BR' }
+    },
+    routes: {
+      root_url: '/',
+      cart_url: '/cart',
+      cart_add_url: '/cart/add',
+      cart_change_url: '/cart/change',
+      cart_update_url: '/cart/update',
+      search_url: '/search',
+      account_url: '/account',
+      account_login_url: '/account/login',
+      account_logout_url: '/account/logout',
+      account_register_url: '/account/register',
+      account_addresses_url: '/account/addresses',
+      collections_url: '/collections',
+      all_products_collection_url: '/collections/all'
+    },
+    cart: {
+      item_count: 0,
+      items: [],
+      empty: true,
+      total_price: 0,
+      original_total_price: 0,
+      total_discount: 0,
+      cart_level_discount_applications: [],
+      taxes_included: false,
+      note: '',
+      attributes: {},
+      currency: { iso_code: 'BRL', symbol: 'R$' }
+    },
+    shop: {
+      name: 'Cartify',
+      domain: 'cartify.local',
+      permanent_domain: 'cartify.local',
+      secure_url: '/',
+      url: '/',
+      customer_accounts_enabled: false,
+      enabled_payment_types: [],
+      shipping_policy: { body: '', url: '/policies/shipping-policy' },
+      refund_policy: { body: '', url: '/policies/refund-policy' },
+      privacy_policy: { body: '', url: '/policies/privacy-policy' },
+      terms_of_service: { body: '', url: '/policies/terms-of-service' },
+      brand: { metafields: { social_links: {} } },
+      features: { follow_on_shop: false, 'follow_on_shop?': false },
+      metafields: {}
+    },
+    settings,
+    localization: {
+      language: { iso_code: 'pt-BR' },
+      country: { iso_code: 'BR' }
+    },
+    template: templateObject,
+    page_title: 'Cartify',
+    page_description: '',
+    current_tags: [],
+    current_page: 1
+  };
+}
+
 export async function renderShopifyThemePreview(
   themeName: string,
   options: RenderPreviewOptions = {}
@@ -632,6 +790,8 @@ export async function renderShopifyThemePreview(
   const liquid = createLiquid(themeName, renderPath, translations);
   await compileLiquidAssets(liquid, renderPath, settings);
   const template = options.template || 'index';
+  const runtimeContext = createRuntimeContext(template, settings);
+  liquid.options.globals = runtimeContext;
   const layoutSource = await readTextIfExists(
     path.join(renderPath, 'layout', 'theme.liquid')
   );
@@ -658,14 +818,6 @@ export async function renderShopifyThemePreview(
     expandedLayout,
     settings
   );
-  const templateName = template
-    .replace(/^templates\//, '')
-    .replace(/\.(json|liquid)$/i, '');
-  const templateObject = { name: templateName };
-  Object.defineProperty(templateObject, 'toString', {
-    enumerable: false,
-    value: () => templateName
-  });
   const editorRuntime = `
     <meta name="robots" content="noindex">
     <script>
@@ -687,24 +839,9 @@ export async function renderShopifyThemePreview(
       })();
     </script>`;
   const html = await liquid.parseAndRender(expandedGroups, {
+    ...runtimeContext,
     content_for_header: editorRuntime,
     content_for_layout: contentForLayout,
-    canonical_url: '/',
-    request: { path: '/', page_type: 'index', design_mode: true },
-    routes: { root_url: '/', cart_url: '/cart', all_products_collection_url: '/collections/all' },
-    shop: {
-      name: 'Cartify',
-      domain: 'cartify.local',
-      permanent_domain: 'cartify.local',
-      url: '/'
-    },
-    settings,
-    localization: { language: { iso_code: 'pt-BR' }, country: { iso_code: 'BR' } },
-    template: templateObject,
-    page_title: 'Cartify',
-    page_description: '',
-    current_tags: [],
-    current_page: 1
   });
 
   return html;

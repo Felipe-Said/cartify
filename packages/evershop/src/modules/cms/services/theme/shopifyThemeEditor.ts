@@ -273,5 +273,8 @@ export async function uploadShopifyThemeMedia(
   const assetDirectory = path.join(rootPath, 'assets');
   await fs.mkdir(assetDirectory, { recursive: true });
   await fs.writeFile(path.join(assetDirectory, filename), file.buffer);
-  return { filename, path: `shopify://shop_images/${filename}` };
+  return {
+    filename,
+    path: `/admin/themes/${encodeURIComponent(themeName)}/assets/${encodeURIComponent(filename)}`
+  };
 }
