@@ -360,11 +360,10 @@ async function loadTranslations(themePath: string) {
 
 function createLiquid(themeName: string, themePath: string, translations: any) {
   const liquid = new Liquid({
-    root: [
-      themePath,
-      path.join(themePath, 'snippets'),
-      path.join(themePath, 'sections')
-    ],
+    root: themePath,
+    partials: path.join(themePath, 'snippets'),
+    layouts: path.join(themePath, 'layout'),
+    relativeReference: false,
     extname: '.liquid',
     cache: false,
     strictFilters: false,
