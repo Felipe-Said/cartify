@@ -73,24 +73,13 @@ async function listFiles(rootPath: string) {
 function withShopifyTags(source: string) {
   const liquidBlocks = source.replace(
     /{%-?\s*liquid\s*([\s\S]*?)\s*-?%}/g,
-    (_match, statements: string) =>
-      `{% liquid\n${statements.replace(
-        /(^|\r?\n)(\s*)render(?=\s+)/g,
-        '$1$2include'
-      )}\n%}`
+    (_match, statements: string) => `{% liquid\n${statements}\n%}`
   );
 
   return liquidBlocks
     .replace(
       /{%-?\s*section\s+['"]([^'"]+)['"]\s*-?%}/g,
       "{% include 'sections/$1.liquid' %}"
-    )
-    // LiquidJS isolates all variables inside `render`, including Shopify
-    // global objects such as settings, shop and routes. Include preserves the
-    // context and still supports Shopify's named snippet arguments.
-    .replace(
-      /{%-?\s*render(\s+['"][^'"]+['"][\s\S]*?)\s*-?%}/g,
-      '{% include$1 %}'
     )
     // Shopify's form tag is a server-side helper. A preview can preserve the
     // visual markup without attempting to submit to Shopify.
