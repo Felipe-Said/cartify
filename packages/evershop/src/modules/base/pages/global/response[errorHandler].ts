@@ -18,6 +18,9 @@ export default async (request: CartifyRequest, response, next) => {
     /** If a rejected middleware called next(error) without throwing an error */
     if (isErrorHandlerTriggered(response)) {
       return;
+    } else if (response.headersSent) {
+      // Binary assets and standalone previews write their own response.
+      return;
     } else {
       const route = request.currentRoute;
 
