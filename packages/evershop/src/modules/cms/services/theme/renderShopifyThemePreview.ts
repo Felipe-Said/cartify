@@ -259,7 +259,7 @@ function normalizeSettingValue(value: any, definition: any) {
     return null;
   }
   if (type === 'link_list' && typeof value === 'string') {
-    return fallbackMenu(value);
+    return value.trim() ? fallbackMenu(value) : null;
   }
   if (type === 'url' && typeof value === 'string') {
     return shopifyResourceUrl(value);
@@ -308,11 +308,16 @@ function normalizeSettings(
   themeName: string,
   settingsSchema: any = []
 ) {
+  const definitions = settingDefinitions(settingsSchema);
   const raw = {
-    ...schemaDefaults(settingsSchema),
+    ...Object.fromEntries(
+      [...definitions.entries()].map(([id, definition]: [string, any]) => [
+        id,
+        definition.default === undefined ? null : definition.default
+      ])
+    ),
     ...(settingsData?.current || settingsData || {})
   };
-  const definitions = settingDefinitions(settingsSchema);
   const current = Object.fromEntries(
     Object.entries(raw).map(([key, value]) => [
       key,
