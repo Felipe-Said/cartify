@@ -1,0 +1,5 @@
+{
+  "methods": ["POST"],
+  "path": "/cart/update.js",
+  "access": "public"
+}

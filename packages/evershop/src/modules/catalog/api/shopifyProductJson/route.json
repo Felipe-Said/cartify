@@ -1,0 +1,5 @@
+{
+  "methods": ["GET"],
+  "path": "/products/:handle.js",
+  "access": "public"
+}

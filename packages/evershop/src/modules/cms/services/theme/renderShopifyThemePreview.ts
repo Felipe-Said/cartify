@@ -706,9 +706,9 @@ function createRuntimeContext(template: string, settings: any) {
     routes: {
       root_url: '/',
       cart_url: '/cart',
-      cart_add_url: '/cart/add',
-      cart_change_url: '/cart/change',
-      cart_update_url: '/cart/update',
+      cart_add_url: '/cart/add.js',
+      cart_change_url: '/cart/change.js',
+      cart_update_url: '/cart/update.js',
       search_url: '/search',
       account_url: '/account',
       account_login_url: '/account/login',
@@ -815,6 +815,10 @@ export async function renderShopifyThemePreview(
     <meta name="robots" content="noindex">
     <script>
       (() => {
+        window.Shopify = window.Shopify || {};
+        window.Shopify.routes = { root: '/' };
+        window.Shopify.designMode = true;
+        window.Shopify.currency = { active: 'BRL', rate: '1.0' };
         document.addEventListener('click', (event) => {
           const link = event.target instanceof Element
             ? event.target.closest('a[href]')
@@ -822,10 +826,6 @@ export async function renderShopifyThemePreview(
           if (!link) return;
           const href = link.getAttribute('href') || '';
           if (href.startsWith('#')) return;
-          event.preventDefault();
-          event.stopPropagation();
-        }, true);
-        document.addEventListener('submit', (event) => {
           event.preventDefault();
           event.stopPropagation();
         }, true);

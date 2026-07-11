@@ -1,0 +1,5 @@
+{
+  "methods": ["GET"],
+  "path": "/recommendations/products",
+  "access": "public"
+}
