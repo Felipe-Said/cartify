@@ -666,11 +666,31 @@ export async function renderShopifyThemePreview(
     enumerable: false,
     value: () => templateName
   });
+  const editorRuntime = `
+    <meta name="robots" content="noindex">
+    <script>
+      (() => {
+        document.addEventListener('click', (event) => {
+          const link = event.target instanceof Element
+            ? event.target.closest('a[href]')
+            : null;
+          if (!link) return;
+          const href = link.getAttribute('href') || '';
+          if (href.startsWith('#')) return;
+          event.preventDefault();
+          event.stopPropagation();
+        }, true);
+        document.addEventListener('submit', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        }, true);
+      })();
+    </script>`;
   const html = await liquid.parseAndRender(expandedGroups, {
-    content_for_header: '<meta name="robots" content="noindex">',
+    content_for_header: editorRuntime,
     content_for_layout: contentForLayout,
     canonical_url: '/',
-    request: { path: '/', page_type: 'index' },
+    request: { path: '/', page_type: 'index', design_mode: true },
     routes: { root_url: '/', cart_url: '/cart', all_products_collection_url: '/collections/all' },
     shop: {
       name: 'Cartify',
