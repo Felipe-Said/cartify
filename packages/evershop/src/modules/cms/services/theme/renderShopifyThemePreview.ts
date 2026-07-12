@@ -827,8 +827,7 @@ export async function renderShopifyThemePreview(
           const href = link.getAttribute('href') || '';
           if (href.startsWith('#')) return;
           event.preventDefault();
-          event.stopPropagation();
-        }, true);
+        });
       })();
     </script>`;
   const html = await liquid.parseAndRender(expandedGroups, {
