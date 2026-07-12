@@ -477,7 +477,8 @@ function createLiquid(themeName: string, themePath: string, translations: any) {
 async function compileLiquidAssets(
   liquid: Liquid,
   renderPath: string,
-  settings: any
+  settings: any,
+  themeName: string
 ) {
   const assetsPath = path.join(renderPath, 'assets');
   if (!(await exists(assetsPath))) {
@@ -492,6 +493,23 @@ async function compileLiquidAssets(
         const rendered = await liquid.parseAndRender(source, { settings });
         await fs.writeFile(file.replace(/\.liquid$/i, ''), rendered);
       })
+  );
+
+  const javascriptFiles = (await listFiles(assetsPath)).filter((file) =>
+    /\.js$/i.test(file)
+  );
+  await Promise.all(
+    javascriptFiles.map(async (file) => {
+      const source = await fs.readFile(file, 'utf8');
+      const rewritten = source.replace(
+        /(["'])(?:https?:)?\/\/[^"']+\/cdn\/shop\/[^"']*\/assets\/([^"'?]+)(?:\?[^"']*)?\1/g,
+        (_match, quote, assetName) =>
+          `${quote}${themeAssetUrl(themeName, assetName)}${quote}`
+      );
+      if (rewritten !== source) {
+        await fs.writeFile(file, rewritten);
+      }
+    })
   );
 }
 
@@ -781,7 +799,7 @@ export async function renderShopifyThemePreview(
   }
   const translations = await loadTranslations(renderPath);
   const liquid = createLiquid(themeName, renderPath, translations);
-  await compileLiquidAssets(liquid, renderPath, settings);
+  await compileLiquidAssets(liquid, renderPath, settings, themeName);
   const template = options.template || 'index';
   const runtimeContext = createRuntimeContext(template, settings);
   liquid.options.globals = runtimeContext;
